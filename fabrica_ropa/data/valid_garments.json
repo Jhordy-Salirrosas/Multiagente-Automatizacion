@@ -1,0 +1,20 @@
+{
+  "palabras_clave_textil": [
+    "polo", "polos", "polera", "poleras",
+    "camisa", "camisas", "blusa", "blusas",
+    "pantalon", "pantalones", "pantalón",
+    "casaca", "casacas", "chompa", "chompas", "chaqueta", "chaquetas",
+    "vestido", "vestidos",
+    "uniforme", "uniformes",
+    "short", "shorts", "bermuda", "bermudas",
+    "falda", "faldas",
+    "ropa", "prenda", "prendas", "textil",
+    "t-shirt", "tshirt", "camiseta", "camisetas"
+  ],
+  "rubros_no_textil_ejemplos": [
+    "comida", "almuerzo", "pizza", "hamburguesa",
+    "celular", "laptop", "electrónica",
+    "carro", "auto", "moto",
+    "mueble", "muebles", "casa", "departamento"
+  ]
+}
