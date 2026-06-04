@@ -29,6 +29,13 @@ LLM_API_BASE = os.getenv("LLM_API_BASE", "https://models.github.ai/inference")
 EXECUTION_MODE = os.getenv("EXECUTION_MODE", "real").lower()
 
 # =============================================================================
+# LangSmith — Tracing y evaluación (§5.3)
+# =============================================================================
+LANGSMITH_API_KEY = os.getenv("LANGSMITH_API_KEY", "")
+LANGSMITH_PROJECT = os.getenv("LANGSMITH_PROJECT", "fabrica-ropa-dev")
+LANGSMITH_TRACING = os.getenv("LANGSMITH_TRACING", "false").lower() == "true"
+
+# =============================================================================
 # Compatibilidad de variables — litellm lee env vars según el prefijo del modelo
 # =============================================================================
 # Cuando el modelo es "openai/...", litellm lee OPENAI_API_KEY y OPENAI_API_BASE
@@ -77,6 +84,14 @@ EMPRESA_DIRECCION = "Av. España 1234, Trujillo - Perú"
 # Métricas
 # =============================================================================
 METRICS_LOG_PATH = BASE_DIR / "data" / "metrics.jsonl"
+
+# =============================================================================
+# RAG — Subsistema de recuperación (§3.3)
+# =============================================================================
+RAG_CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "3200"))     # ~800 tokens
+RAG_CHUNK_OVERLAP = int(os.getenv("RAG_CHUNK_OVERLAP", "480"))  # ~120 tokens
+RAG_TOP_K = int(os.getenv("RAG_TOP_K", "4"))
+RAG_DENSE_WEIGHT = float(os.getenv("RAG_DENSE_WEIGHT", "0.6"))
 
 
 def validate_config() -> tuple[bool, str]:
