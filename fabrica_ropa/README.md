@@ -2,7 +2,7 @@
 
 > **Curso:** Automatización Inteligente de Procesos · **Grupo 01** · UPAO 2026
 > Implementación en código del proceso *Realizar Pedido* del proyecto **Fábrica de Ropa**.
-> Migra el flujo originalmente prototipado en N8N a un **sistema multiagente jerárquico** en Python con **Swarms + GitHub Models / Gemini / OpenAI**.
+> Migra el flujo originalmente prototipado en N8N a un **sistema multiagente jerárquico** en Python con **LangChain LCEL + LangGraph + GitHub Models / OpenAI**.
 
 ---
 
@@ -93,14 +93,14 @@ flowchart TB
 
 ### Roles (sin solapamiento)
 
-| Agente | Responsabilidad ÚNICA | LLM | Tool |
+| Agente | Responsabilidad ÚNICA | LLM (LangChain LCEL) | Tool |
 |---|---|---|---|
 | **OrchestratorAgent** | Coordina el flujo. Máquina de estados. | ❌ | — |
-| **ValidatorAgent** | Decide si el pedido es del rubro textil. | ✅ | — |
-| **DataCollectorAgent** | Conversación para extraer los 8 datos. | ✅ | — |
-| **PricingAgent** | Calcula subtotal, descuento, total, adelanto. | ✅ | Price table |
-| **RegistryAgent** | Persiste el pedido en SQLite. | ✅ | SheetsTool |
-| **NotifierAgent** | Genera HTML de constancia. | ✅ | EmailTool |
+| **ValidatorAgent** | Decide si el pedido es del rubro textil. | ✅ prompt \| llm \| parser | — |
+| **DataCollectorAgent** | Conversación para extraer los 8 datos. | ✅ prompt \| llm \| parser | — |
+| **PricingAgent** | Calcula subtotal, descuento, total, adelanto. | ✅ prompt \| llm \| parser | Price table |
+| **RegistryAgent** | Persiste el pedido en SQLite. | ✅ prompt \| llm \| parser | SheetsTool (@tool) |
+| **NotifierAgent** | Genera HTML de constancia. | ✅ prompt \| llm \| parser | EmailTool (@tool) |
 
 ### Estados del flujo
 
@@ -190,7 +190,7 @@ fabrica_ropa/
 │   └── metrics.py          # Latencia, tokens, success rate
 │
 ├── agents/                 # Los 6 agentes
-│   ├── base.py             # Wrapper sobre swarms.Agent + métricas + MCP
+│   ├── base.py             # Wrapper LangChain LCEL (prompt | llm | parser) + métricas + MCP
 │   ├── orchestrator.py     # Coordinador (máquina de estados)
 │   ├── validator.py        # Filtro rubro textil
 │   ├── data_collector.py   # Recolección conversacional
@@ -284,7 +284,7 @@ Cobertura:
 | Criterio | Implementación | Archivos |
 |---|---|---|
 | **1. Diseño arquitectónico** (4 pts) | Topología estrella con orquestador + 5 subagentes diferenciados. Diagrama Mermaid alineado con el código. | `agents/*.py` |
-| **2. Implementación Swarms** (5 pts) | `swarms.Agent` con system prompts especializados. Wrapper `BaseAgent` integra Swarms + métricas + MCP. | `agents/base.py` |
+| **2. Implementación LangChain** (5 pts) | Cadenas LCEL (`prompt \| llm \| parser`) con `ChatOpenAI`. Decorador `@traceable` para LangSmith. Tools con `@tool`. | `agents/base.py`, `tools/*.py` |
 | **3. Comunicación MCP** (4 pts) | Mensajes MCP validados con Pydantic JSON Schema. Estado compartido thread-safe. Event bus pub/sub. Resolución de conflictos. | `core/*.py` |
 | **4. Complejidad del caso** (2 pts) | Múltiples flujos condicionales, 8 etapas en máquina de estados, dominios distintos. | `agents/orchestrator.py` |
 | **5. Pruebas y docs** (2 pts) | 32 tests con casos adversariales. Métricas cuantitativas. README reproducible. | `tests/`, este README |

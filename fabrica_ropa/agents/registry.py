@@ -13,6 +13,15 @@ from core.mcp_messages import AgentName, RegistryResult
 from core.shared_state import SharedState
 from tools.sheets_tool import SheetsTool
 
+# LangSmith tracing (§5.3)
+try:
+    from langsmith import traceable  # type: ignore
+except ImportError:
+    def traceable(*args, **kwargs):
+        def decorator(func): return func
+        if args and callable(args[0]): return args[0]
+        return decorator
+
 
 SYSTEM_PROMPT = """Eres un agente de registro. Recibes el ID de un pedido \
 recién registrado y produces un mensaje BREVE (1-2 líneas) en español que \
@@ -29,6 +38,7 @@ class RegistryAgent(BaseAgent):
         )
         self.sheets = SheetsTool()
 
+    @traceable(name="RegistryAgent.register")
     def register(self, state: SharedState) -> RegistryResult:
         """Persiste el pedido en la base. Requiere order_data y quote_result completos."""
         order = state.order_data
@@ -36,6 +46,7 @@ class RegistryAgent(BaseAgent):
         if not order.is_complete() or quote is None:
             raise ValueError("No se puede registrar: faltan datos del pedido o cotización.")
 
+        assert order.nombre and order.email and order.tipo_prenda and order.cantidad and order.talla and order.color and order.acabado and order.fecha_entrega
         pedido_id = self.sheets.append_row(
             session_id=state.session_id,
             nombre=order.nombre,
@@ -71,7 +82,7 @@ class RegistryAgent(BaseAgent):
         clean = self.extract_agent_text(raw).strip()
         if clean and len(clean) > 5:
             return clean
-        return f"✅ Pedido registrado. Tu ID es: {pedido_id}. Estado: Pendiente de pago."
+        return f"[OK] Pedido registrado. Tu ID es: {pedido_id}. Estado: Pendiente de pago."
 
     def _default_mock_response(self, prompt: str) -> str:
         return "Pedido registrado correctamente."

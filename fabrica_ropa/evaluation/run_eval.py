@@ -108,7 +108,7 @@ def run_golden_set_evaluation(
         results.append(eval_result)
 
         # Imprimir resultado
-        icon = "✅" if eval_result["aprobado"] else "❌"
+        icon = "[OK]" if eval_result["aprobado"] else "[FAIL]"
         print(f"  {icon} {case.case_id} [{case.categoria}] "
               f"exactitud={eval_result['exactitud']:.2f} "
               f"latencia={eval_result['latencia_ms']:.0f}ms")
@@ -144,9 +144,9 @@ def run_golden_set_evaluation(
 
     # Decisión (§5.5)
     if tasa_aprobacion >= 0.8:
-        print(f"\n  ✅ DECISIÓN: APROBAR — Cumple umbrales de calidad")
+        print(f"\n  [OK] DECISIÓN: APROBAR — Cumple umbrales de calidad")
     else:
-        print(f"\n  ❌ DECISIÓN: ITERAR — No cumple umbrales mínimos")
+        print(f"\n  [FAIL] DECISIÓN: ITERAR — No cumple umbrales mínimos")
     print(f"{'='*60}\n")
 
     return {

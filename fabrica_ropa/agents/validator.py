@@ -13,6 +13,15 @@ from core.mcp_messages import AgentName, ValidationResult
 from core.shared_state import SharedState
 from config import VALID_GARMENTS_PATH
 
+# LangSmith tracing (§5.3)
+try:
+    from langsmith import traceable  # type: ignore
+except ImportError:
+    def traceable(*args, **kwargs):
+        def decorator(func): return func
+        if args and callable(args[0]): return args[0]
+        return decorator
+
 
 SYSTEM_PROMPT = """Eres un agente especializado EXCLUSIVAMENTE en validar si un \
 mensaje de un cliente corresponde al rubro TEXTIL (confección de ropa: polos, \
@@ -49,6 +58,7 @@ class ValidatorAgent(BaseAgent):
         self._textile_keywords = set(k.lower() for k in data["palabras_clave_textil"])
         self._non_textile_examples = set(k.lower() for k in data["rubros_no_textil_ejemplos"])
 
+    @traceable(name="ValidatorAgent.validate")
     def validate(self, user_message: str, state: SharedState) -> ValidationResult:
         """Valida el mensaje y devuelve un ValidationResult tipado."""
         prompt = f"Mensaje del cliente: \"{user_message}\"\n\nResponde el JSON de validación."

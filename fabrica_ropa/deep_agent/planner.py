@@ -2,6 +2,8 @@
 Planificador del Deep Agent — §3.6 de la plantilla.
 
 El planificador descompone la tarea en pasos y coordina los sub-agentes.
+Usa cadena LangChain LCEL (prompt | llm | parser).
+
 Incluye:
   - Límites operativos (máx iteraciones, presupuesto)
   - Mecanismo de fallback si no converge
@@ -9,32 +11,35 @@ Incluye:
 """
 from __future__ import annotations
 import json
+import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from deep_agent.state import EstadoDeepAgent
-from config import LLM_API_KEY, LLM_MODEL, LLM_API_BASE, EXECUTION_MODE
+from config import EXECUTION_MODE, LLM_API_KEY, get_langchain_llm
 
 
 def _call_llm(prompt: str) -> str:
-    """Llama al LLM configurado."""
+    """Llama al LLM configurado vía cadena LangChain LCEL."""
     if EXECUTION_MODE != "real" or not LLM_API_KEY:
         return _mock_plan(prompt)
     try:
-        import litellm
-        response = litellm.completion(
-            model=LLM_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            api_key=LLM_API_KEY,
-            api_base=LLM_API_BASE,
-            max_tokens=512,
-            temperature=0.2,
-        )
-        return response.choices[0].message.content or ""
+        from langchain_core.prompts import ChatPromptTemplate
+        from langchain_core.output_parsers import StrOutputParser
+
+        llm = get_langchain_llm(temperature=0.2, max_tokens=512)
+        if llm is None:
+            return _mock_plan(prompt)
+
+        chain = ChatPromptTemplate.from_messages([
+            ("human", "{input}"),
+        ]) | llm | StrOutputParser()
+
+        return chain.invoke({"input": prompt})
     except Exception as e:
-        print(f"⚠️  LLM error en planificador: {e}")
+        print(f"[WARN] LLM error en planificador: {e}")
         return _mock_plan(prompt)
 
 
@@ -84,7 +89,6 @@ TAREA: {tarea}
 
     plan = ["Investigar", "Redactar", "Validar"]
     try:
-        import re
         match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', raw, re.DOTALL)
         if match:
             data = json.loads(match.group())

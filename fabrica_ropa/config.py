@@ -11,7 +11,7 @@ La selección del proveedor se controla por el .env.
 """
 import os
 from pathlib import Path
-from dotenv import load_dotenv
+from dotenv import load_dotenv  # type: ignore
 
 # Cargar .env si existe
 BASE_DIR = Path(__file__).resolve().parent
@@ -92,6 +92,48 @@ RAG_CHUNK_SIZE = int(os.getenv("RAG_CHUNK_SIZE", "3200"))     # ~800 tokens
 RAG_CHUNK_OVERLAP = int(os.getenv("RAG_CHUNK_OVERLAP", "480"))  # ~120 tokens
 RAG_TOP_K = int(os.getenv("RAG_TOP_K", "4"))
 RAG_DENSE_WEIGHT = float(os.getenv("RAG_DENSE_WEIGHT", "0.6"))
+
+
+def get_langchain_model_name() -> str:
+    """
+    Devuelve el nombre del modelo para LangChain ChatOpenAI.
+
+    litellm usa prefijos como 'openai/gpt-4o-mini', pero LangChain
+    ChatOpenAI espera solo 'gpt-4o-mini'. Aquí lo limpiamos.
+    """
+    model = LLM_MODEL
+    # Remover prefijos de proveedor que litellm usa
+    for prefix in ("openai/", "github/", "azure/"):
+        if model.startswith(prefix):
+            model = model[len(prefix):]
+            break
+    return model
+
+
+def get_langchain_llm(temperature: float = 0.3, max_tokens: int = 1024):
+    """
+    Crea una instancia de ChatOpenAI configurada para el proveedor actual.
+
+    Compatible con GitHub Models, OpenAI directo, y cualquier endpoint
+    OpenAI-compatible. Retorna None si no hay API key (modo mock).
+    """
+    if EXECUTION_MODE != "real" or not LLM_API_KEY:
+        return None
+    try:
+        from langchain_openai import ChatOpenAI  # type: ignore
+        return ChatOpenAI(
+            model=get_langchain_model_name(),
+            api_key=LLM_API_KEY,
+            base_url=LLM_API_BASE or None,
+            temperature=temperature,
+            max_tokens=max_tokens,
+        )
+    except ImportError:
+        print("[WARN] langchain-openai no instalado. pip install langchain-openai")
+        return None
+    except Exception as e:
+        print(f"[WARN] Error creando LLM LangChain: {e}")
+        return None
 
 
 def validate_config() -> tuple[bool, str]:

@@ -10,6 +10,14 @@ from pathlib import Path
 
 from config import DB_PATH
 
+# LangChain @tool — expone la herramienta como tool LangChain (§3.4)
+try:
+    from langchain_core.tools import tool as langchain_tool  # type: ignore
+except ImportError:
+    def langchain_tool(func):
+        """No-op si langchain_core no está instalado."""
+        return func
+
 
 class SheetsTool:
     """
@@ -95,3 +103,56 @@ class SheetsTool:
     def count_pedidos(self) -> int:
         with sqlite3.connect(self.db_path) as conn:
             return conn.execute("SELECT COUNT(*) FROM pedidos").fetchone()[0]
+
+
+# =============================================================================
+# LangChain Tool — función standalone para uso con agentes LangChain (§3.4)
+# =============================================================================
+
+@langchain_tool
+def save_order_to_db(
+    session_id: str,
+    nombre: str,
+    email: str,
+    tipo_prenda: str,
+    cantidad: int,
+    talla: str,
+    color: str,
+    acabado: str,
+    fecha_entrega: str,
+    subtotal: float,
+    descuento_porc: float,
+    descuento_monto: float,
+    total: float,
+    adelanto: float,
+) -> str:
+    """Guarda un pedido confirmado en la base de datos SQLite.
+
+    Registra todos los datos del pedido y la cotización.
+    Devuelve el ID del pedido generado.
+
+    Args:
+        session_id: ID de la sesión.
+        nombre: Nombre del cliente.
+        email: Email del cliente.
+        tipo_prenda: Tipo de prenda (polo, camisa, etc.).
+        cantidad: Número de unidades.
+        talla: Talla(s) del pedido.
+        color: Color deseado.
+        acabado: Tipo de acabado (ninguno, estampado, bordado).
+        fecha_entrega: Fecha de entrega en formato ISO.
+        subtotal: Subtotal del pedido.
+        descuento_porc: Porcentaje de descuento.
+        descuento_monto: Monto del descuento.
+        total: Total final.
+        adelanto: Monto del adelanto (50%).
+    """
+    tool = SheetsTool()
+    pedido_id = tool.append_row(
+        session_id=session_id, nombre=nombre, email=email,
+        tipo_prenda=tipo_prenda, cantidad=cantidad, talla=talla,
+        color=color, acabado=acabado, fecha_entrega=fecha_entrega,
+        subtotal=subtotal, descuento_porc=descuento_porc,
+        descuento_monto=descuento_monto, total=total, adelanto=adelanto,
+    )
+    return f"Pedido registrado con ID: {pedido_id}"

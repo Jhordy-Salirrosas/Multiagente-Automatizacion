@@ -1,7 +1,7 @@
 """
 Sub-agentes especializados del Deep Agent — §3.6 de la plantilla.
 
-Implementa los 3 sub-agentes:
+Implementa los 3 sub-agentes usando cadenas LangChain LCEL:
   - Investigador: Recupera y sintetiza fuentes (RAG + búsqueda)
   - Redactor: Estructura la respuesta formal
   - Crítico: Evalúa contra checklist de calidad
@@ -10,32 +10,35 @@ Cada sub-agente tiene un propósito único y tools asignadas.
 """
 from __future__ import annotations
 import json
+import re
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from deep_agent.state import EstadoDeepAgent
-from config import LLM_API_KEY, LLM_MODEL, LLM_API_BASE, EXECUTION_MODE
+from config import EXECUTION_MODE, LLM_API_KEY, get_langchain_llm
 
 
 def _call_llm(prompt: str, max_tokens: int = 1024) -> str:
-    """Llama al LLM configurado vía litellm."""
+    """Llama al LLM configurado vía cadena LangChain LCEL."""
     if EXECUTION_MODE != "real" or not LLM_API_KEY:
         return _mock_response(prompt)
     try:
-        import litellm
-        response = litellm.completion(
-            model=LLM_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            api_key=LLM_API_KEY,
-            api_base=LLM_API_BASE,
-            max_tokens=max_tokens,
-            temperature=0.3,
-        )
-        return response.choices[0].message.content or ""
+        from langchain_core.prompts import ChatPromptTemplate
+        from langchain_core.output_parsers import StrOutputParser
+
+        llm = get_langchain_llm(temperature=0.3, max_tokens=max_tokens)
+        if llm is None:
+            return _mock_response(prompt)
+
+        chain = ChatPromptTemplate.from_messages([
+            ("human", "{input}"),
+        ]) | llm | StrOutputParser()
+
+        return chain.invoke({"input": prompt})
     except Exception as e:
-        print(f"⚠️  LLM error en sub-agente: {e}")
+        print(f"[WARN] LLM error en sub-agente: {e}")
         return _mock_response(prompt)
 
 
@@ -92,7 +95,7 @@ def agente_investigador(state: EstadoDeepAgent) -> dict:
         from rag.retriever import retriever
         contexto_rag = retriever.query(tarea, k=4)
     except Exception as e:
-        print(f"⚠️  RAG no disponible para Investigador: {e}")
+        print(f"[WARN] RAG no disponible para Investigador: {e}")
 
     contexto_text = "\n".join(f"- {c[:200]}" for c in contexto_rag)
 
@@ -226,7 +229,6 @@ Responde con JSON:
 
     critica = {"aprobado": True, "puntuacion": 7.0, "observaciones": [], "criterios": {}}
     try:
-        import re
         match = re.search(r'\{[^{}]*(?:\{[^{}]*\}[^{}]*)*\}', raw, re.DOTALL)
         if match:
             critica = json.loads(match.group())

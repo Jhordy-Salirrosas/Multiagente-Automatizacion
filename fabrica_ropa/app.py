@@ -63,7 +63,7 @@ def init_session() -> None:
 
 def reset_session() -> None:
     """Reinicia toda la conversación."""
-    for k in ("orchestrator", "state", "messages"):
+    for k in ("orchestrator", "state", "messages", "form_submitted"):
         if k in st.session_state:
             del st.session_state[k]
     init_session()
@@ -99,8 +99,8 @@ with st.sidebar:
         ConversationStage.WAITING_CONFIRMATION: "✋ Esperando confirmación",
         ConversationStage.REGISTERING: "📋 Registrando",
         ConversationStage.NOTIFYING: "📧 Enviando email",
-        ConversationStage.COMPLETE: "✅ Completado",
-        ConversationStage.REJECTED: "❌ Rechazado",
+        ConversationStage.COMPLETE: "[OK] Completado",
+        ConversationStage.REJECTED: "[FAIL] Rechazado",
     }
     st.markdown(f"**Etapa:** {stage_emojis.get(state.stage, state.stage.value)}")
     st.divider()
@@ -108,7 +108,7 @@ with st.sidebar:
     # Validación
     if state.validation_result:
         v = state.validation_result
-        icon = "✅" if v.is_textile else "❌"
+        icon = "[OK]" if v.is_textile else "[FAIL]"
         st.markdown(f"**Validación:** {icon} ({v.confidence * 100:.0f}%)")
         st.caption(v.reason)
         st.divider()
@@ -196,27 +196,218 @@ with tab_chat:
         with st.chat_message(msg["role"], avatar="🤖" if msg["role"] == "assistant" else "👤"):
             st.markdown(msg["content"])
 
-    # Input del usuario
-    if user_msg := st.chat_input("Escribe tu mensaje..."):
-        # 1) Render del usuario
-        st.session_state.messages.append({"role": "user", "content": user_msg})
-        with st.chat_message("user", avatar="👤"):
-            st.markdown(user_msg)
+    # ─────────────────────────────────────────────────────────────────────────
+    # FORMULARIO INTERACTIVO DE PEDIDO (reemplaza el chat largo)
+    # Se muestra cuando la validación pasó y aún no se envió el formulario
+    # ─────────────────────────────────────────────────────────────────────────
+    _show_form = (
+        state.stage == ConversationStage.COLLECTING_DATA
+        and not st.session_state.get("form_submitted", False)
+    )
 
-        # 2) Procesar con el orquestador
-        with st.chat_message("assistant", avatar="🤖"):
-            with st.spinner("Pensando..."):
-                try:
-                    reply = st.session_state.orchestrator.handle_user_message(
-                        user_msg, st.session_state.state
-                    )
-                except Exception as e:
-                    reply = f"⚠️ Error: {e}"
-            st.markdown(reply)
-        st.session_state.messages.append({"role": "assistant", "content": reply})
+    if _show_form:
+        # Cargar tabla de precios para los selectores
+        import json
+        from config import PRICE_TABLE_PATH
+        with open(PRICE_TABLE_PATH, encoding="utf-8") as _f:
+            _pt = json.load(_f)
 
-        # 3) Refrescar la sidebar (que muestra el estado actualizado)
-        st.rerun()
+        st.markdown("---")
+        st.markdown("### 📋 Formulario de Pedido")
+        st.caption("Selecciona los detalles de tu pedido y obtendrás la cotización al instante.")
+
+        with st.form("order_form", clear_on_submit=False):
+            # ── Fila 1: Datos del cliente ──
+            st.markdown("#### 👤 Datos del cliente")
+            fc1, fc2 = st.columns(2)
+            with fc1:
+                form_nombre = st.text_input(
+                    "Nombre completo *",
+                    placeholder="Juan Pérez",
+                    key="f_nombre",
+                )
+            with fc2:
+                form_email = st.text_input(
+                    "Email *",
+                    placeholder="juan@empresa.com",
+                    key="f_email",
+                )
+
+            st.markdown("---")
+
+            # ── Fila 2: Detalles de la prenda ──
+            st.markdown("#### 👕 Detalles del pedido")
+
+            # Tipo de prenda con precio visible
+            _prenda_options = {
+                k: f"{k.capitalize()} — S/ {v['precio_unitario']:.2f}"
+                for k, v in _pt["prendas"].items()
+            }
+            fp1, fp2 = st.columns(2)
+            with fp1:
+                form_prenda_key = st.selectbox(
+                    "Tipo de prenda *",
+                    options=list(_prenda_options.keys()),
+                    format_func=lambda x: _prenda_options[x],
+                    key="f_prenda",
+                )
+            with fp2:
+                form_cantidad = st.number_input(
+                    "Cantidad (unidades) *",
+                    min_value=1, max_value=10000, value=50, step=10,
+                    key="f_cantidad",
+                )
+
+            fp3, fp4 = st.columns(2)
+            with fp3:
+                form_talla = st.selectbox(
+                    "Talla *",
+                    options=["XS", "S", "M", "L", "XL", "XXL"],
+                    index=2,
+                    key="f_talla",
+                )
+            with fp4:
+                form_color = st.selectbox(
+                    "Color *",
+                    options=["Blanco", "Negro", "Azul", "Rojo", "Gris",
+                             "Verde", "Amarillo", "Celeste", "Rosa", "Naranja"],
+                    key="f_color",
+                )
+
+            # Acabado con precios
+            _acabado_labels = {
+                "ninguno": "Sin acabado (S/ 0.00)",
+                "estampado": f"Estampado (+S/ {_pt['acabados']['estampado']:.2f})",
+                "bordado": f"Bordado (+S/ {_pt['acabados']['bordado']:.2f})",
+            }
+            form_acabado = st.radio(
+                "Acabado *",
+                options=list(_acabado_labels.keys()),
+                format_func=lambda x: _acabado_labels[x],
+                horizontal=True,
+                key="f_acabado",
+            )
+
+            # Fecha de entrega
+            from datetime import date, timedelta
+            form_fecha = st.date_input(
+                "Fecha de entrega *",
+                value=date.today() + timedelta(days=15),
+                min_value=date.today() + timedelta(days=7),
+                key="f_fecha",
+            )
+
+            st.markdown("---")
+
+            # ── PREVISUALIZACIÓN EN VIVO ──
+            _precio_unit = _pt["prendas"][form_prenda_key]["precio_unitario"]
+            _costo_acabado = _pt["acabados"].get(form_acabado, 0)
+            _subtotal = (_precio_unit + _costo_acabado) * form_cantidad
+
+            # Calcular descuento
+            _desc_porc = 0.0
+            _desc_label = "Sin descuento"
+            for tramo in _pt["descuentos_volumen"]:
+                if form_cantidad >= tramo["minimo"]:
+                    _desc_porc = tramo["porcentaje"]
+                    _desc_label = tramo["label"]
+                    break
+            _desc_monto = round(_subtotal * _desc_porc, 2)
+            _total = round(_subtotal - _desc_monto, 2)
+            _adelanto = round(_total * _pt["porcentaje_adelanto"], 2)
+
+            st.markdown("#### 💰 Previsualización de cotización")
+            pc1, pc2, pc3, pc4 = st.columns(4)
+            pc1.metric("Precio unitario", f"S/ {_precio_unit + _costo_acabado:.2f}")
+            pc2.metric("Subtotal", f"S/ {_subtotal:,.2f}")
+            pc3.metric("Descuento", f"-S/ {_desc_monto:,.2f}", delta=_desc_label)
+            pc4.metric("TOTAL", f"S/ {_total:,.2f}")
+
+            st.caption(f"Adelanto requerido (50%): **S/ {_adelanto:,.2f}**")
+
+            # ── Botón de envío ──
+            submitted = st.form_submit_button(
+                "📋 Generar Cotización",
+                use_container_width=True,
+                type="primary",
+            )
+
+            if submitted:
+                # Validar campos obligatorios
+                errors = []
+                if not form_nombre.strip():
+                    errors.append("Nombre es obligatorio")
+                if not form_email.strip() or "@" not in form_email:
+                    errors.append("Email válido es obligatorio")
+
+                if errors:
+                    st.error("[WARN] " + " · ".join(errors))
+                else:
+                    # Armar el dict con los 8 datos
+                    form_data = {
+                        "nombre": form_nombre.strip(),
+                        "email": form_email.strip().lower(),
+                        "tipo_prenda": form_prenda_key,
+                        "cantidad": form_cantidad,
+                        "talla": form_talla,
+                        "color": form_color.lower(),
+                        "acabado": form_acabado,
+                        "fecha_entrega": form_fecha.isoformat(),
+                    }
+
+                    # Procesar con el Orchestrator
+                    try:
+                        reply = st.session_state.orchestrator.handle_form_submission(
+                            form_data, st.session_state.state
+                        )
+                        # Agregar al chat
+                        resumen_usuario = (
+                            f"📝 **Pedido enviado:** {form_cantidad} {form_prenda_key}(s) "
+                            f"{form_color.lower()} con {form_acabado}, "
+                            f"talla {form_talla}, para {form_fecha.isoformat()}"
+                        )
+                        st.session_state.messages.append({"role": "user", "content": resumen_usuario})
+                        st.session_state.messages.append({"role": "assistant", "content": reply})
+                        st.session_state.form_submitted = True
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"[WARN] Error al procesar: {e}")
+
+    # ─────────────────────────────────────────────────────────────────────────
+    # INPUT DE CHAT (para la interacción inicial y la confirmación final)
+    # ─────────────────────────────────────────────────────────────────────────
+    _show_chat_input = (
+        state.stage in (
+            ConversationStage.INITIAL,
+            ConversationStage.VALIDATING,
+            ConversationStage.WAITING_CONFIRMATION,
+            ConversationStage.COLLECTING_DATA,  # Fallback: si prefiere chat
+        )
+        and state.stage != ConversationStage.COMPLETE
+        and state.stage != ConversationStage.REJECTED
+    )
+
+    if _show_chat_input:
+        if user_msg := st.chat_input("Escribe tu mensaje..."):
+            # 1) Render del usuario
+            st.session_state.messages.append({"role": "user", "content": user_msg})
+            with st.chat_message("user", avatar="👤"):
+                st.markdown(user_msg)
+
+            # 2) Procesar con el orquestador
+            with st.chat_message("assistant", avatar="🤖"):
+                with st.spinner("Pensando..."):
+                    try:
+                        reply = st.session_state.orchestrator.handle_user_message(
+                            user_msg, st.session_state.state
+                        )
+                    except Exception as e:
+                        reply = f"[WARN] Error: {e}"
+                st.markdown(reply)
+            st.session_state.messages.append({"role": "assistant", "content": reply})
+
+            # 3) Refrescar
+            st.rerun()
 
 
 # --------- TAB MÉTRICAS ----------
@@ -336,7 +527,7 @@ with tab_rag:
             try:
                 from rag.ingester import ingest
                 count = ingest(force=True)
-                st.success(f"✅ {count} chunks ingestados en ChromaDB")
+                st.success(f"[OK] {count} chunks ingestados en ChromaDB")
             except Exception as e:
                 st.error(f"Error en ingesta: {e}")
 
@@ -372,10 +563,10 @@ with tab_deep:
                 for h in result.get("hallazgos", []):
                     st.markdown(f"- {h}")
 
-                st.markdown("#### ✅ Evaluación del Crítico")
+                st.markdown("#### [OK] Evaluación del Crítico")
                 critica = result.get("critica", {})
                 if critica:
-                    icon = "✅" if critica.get("aprobado") else "❌"
+                    icon = "[OK]" if critica.get("aprobado") else "[FAIL]"
                     st.markdown(f"{icon} Puntuación: **{critica.get('puntuacion', 'N/A')}/10**")
                     for obs in critica.get("observaciones", []):
                         st.markdown(f"  - {obs}")
@@ -459,7 +650,7 @@ with tab_eval:
                 for r in results["results"]:
                     eval_rows.append({
                         "ID": r["case_id"],
-                        "Aprobado": "✅" if r["aprobado"] else "❌",
+                        "Aprobado": "[OK]" if r["aprobado"] else "[FAIL]",
                         "Exactitud": f"{r['exactitud']:.2f}",
                         "Groundedness": f"{r['groundedness']:.2f}",
                         "Latencia (ms)": f"{r['latencia_ms']:.0f}",
@@ -468,9 +659,9 @@ with tab_eval:
 
                 # Decisión
                 if results["tasa_aprobacion"] >= 0.8:
-                    st.success("✅ DECISIÓN: Sistema APROBADO — Cumple umbrales de calidad")
+                    st.success("[OK] DECISIÓN: Sistema APROBADO — Cumple umbrales de calidad")
                 else:
-                    st.warning("❌ DECISIÓN: ITERAR — No cumple umbrales mínimos")
+                    st.warning("[FAIL] DECISIÓN: ITERAR — No cumple umbrales mínimos")
 
             except Exception as e:
                 st.error(f"Error en evaluación: {e}")
@@ -482,9 +673,9 @@ with tab_eval:
         from evaluation.langsmith_config import check_langsmith_connection, LANGSMITH_PROJECT
         ok, msg = check_langsmith_connection()
         if ok:
-            st.success(f"✅ {msg}")
+            st.success(f"[OK] {msg}")
         else:
-            st.info(f"ℹ️ {msg}")
+            st.info(f"[INFO] {msg}")
         st.caption(f"Proyecto: `{LANGSMITH_PROJECT}`")
     except Exception as e:
         st.info(f"LangSmith: {e}")

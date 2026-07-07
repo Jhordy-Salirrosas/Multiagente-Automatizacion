@@ -40,7 +40,7 @@ def setup_langsmith(
     """
     api_key = LANGSMITH_API_KEY
     if not api_key:
-        print("⚠️  LANGSMITH_API_KEY no configurada. Tracing deshabilitado.")
+        print("[WARN] LANGSMITH_API_KEY no configurada. Tracing deshabilitado.")
         os.environ["LANGCHAIN_TRACING_V2"] = "false"
         return False
 
@@ -50,7 +50,7 @@ def setup_langsmith(
     os.environ["LANGCHAIN_ENDPOINT"] = LANGSMITH_ENDPOINT
     os.environ["LANGCHAIN_PROJECT"] = project_name or LANGSMITH_PROJECT
 
-    print(f"✅ LangSmith configurado: proyecto={os.environ['LANGCHAIN_PROJECT']}, "
+    print(f"[OK] LangSmith configurado: proyecto={os.environ['LANGCHAIN_PROJECT']}, "
           f"tracing={'ON' if enable_tracing else 'OFF'}")
     return True
 

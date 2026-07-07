@@ -12,6 +12,15 @@ from core.shared_state import SharedState
 from tools.email_tool import EmailTool
 from config import EMPRESA_NOMBRE
 
+# LangSmith tracing (§5.3)
+try:
+    from langsmith import traceable  # type: ignore
+except ImportError:
+    def traceable(*args, **kwargs):
+        def decorator(func): return func
+        if args and callable(args[0]): return args[0]
+        return decorator
+
 
 SYSTEM_PROMPT = """Eres un agente de notificación. Genera el CUERPO HTML \
 (sin <html>, <head>, ni <body>; solo el contenido interno) de una \
@@ -29,6 +38,7 @@ class NotifierAgent(BaseAgent):
         )
         self.email_tool = EmailTool()
 
+    @traceable(name="NotifierAgent.notify")
     def notify(self, state: SharedState) -> NotificationResult:
         """Genera y envía el correo de constancia."""
         order = state.order_data
@@ -49,6 +59,8 @@ class NotifierAgent(BaseAgent):
             cuerpo_html = self._fallback_html(state)
 
         # 3) "Enviar" (persistir)
+        assert registry and registry.pedido_id
+        assert order.email
         asunto = f"Constancia de pedido {registry.pedido_id} - {EMPRESA_NOMBRE}"
         try:
             ruta = self.email_tool.send(
@@ -79,6 +91,7 @@ class NotifierAgent(BaseAgent):
         o = state.order_data
         q = state.quote_result
         r = state.registry_result
+        assert q and r
         return f"""Genera el HTML del cuerpo de la constancia con estos datos:
 
 Pedido ID: {r.pedido_id}
@@ -100,6 +113,7 @@ y un párrafo final indicando próximos pasos (pagar el adelanto)."""
         o = state.order_data
         q = state.quote_result
         r = state.registry_result
+        assert q and r
         return f"""
         <h2>Constancia de Pedido</h2>
         <p>Estimado(a) <strong>{o.nombre}</strong>,</p>

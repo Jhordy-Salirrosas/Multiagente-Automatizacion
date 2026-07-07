@@ -1,18 +1,18 @@
 """
-Retriever — Recuperación híbrida (densa + léxica) sobre ChromaDB.
+Retriever — Recuperación híbrida (densa + léxica) sobre ChromaDB con LangChain.
 
 Implementa §3.3 de la plantilla:
   - Método de recuperación: Híbrido denso + léxico (BM25)
   - k (fragmentos): 4
-  - Combina scores de similitud semántica (embeddings) y BM25 (TF-IDF)
+  - Combina scores de similitud semántica (LangChain Chroma) y BM25 (TF-IDF)
 """
 from __future__ import annotations
 from pathlib import Path
 from typing import Optional
 
 from rag.ingester import (
-    _get_chroma_client, _get_embed_model,
-    COLLECTION_NAME, EmbeddingFunction, ingest,
+    _get_embeddings, _get_vectorstore,
+    COLLECTION_NAME, CHROMA_PERSIST_DIR, ingest,
 )
 
 
@@ -20,9 +20,9 @@ class HybridRetriever:
     """
     Retriever híbrido que combina búsqueda semántica (dense) con BM25 (léxica).
 
-    La búsqueda densa captura similitud de significado, mientras que BM25
-    captura coincidencias exactas de palabras clave. La combinación da
-    mejor recall que cualquiera de las dos por separado.
+    La búsqueda densa captura similitud de significado (vía LangChain Chroma),
+    mientras que BM25 captura coincidencias exactas de palabras clave.
+    La combinación da mejor recall que cualquiera de las dos por separado.
     """
 
     def __init__(self, k: int = 4, dense_weight: float = 0.6):
@@ -34,47 +34,55 @@ class HybridRetriever:
         self.k = k
         self.dense_weight = dense_weight
         self.bm25_weight = 1.0 - dense_weight
-        self._collection = None
+        self._vectorstore = None
         self._bm25 = None
         self._corpus: list[str] = []
-        self._corpus_ids: list[str] = []
-        self._embed_fn = EmbeddingFunction()
         self._initialized = False
 
     def _ensure_initialized(self) -> bool:
-        """Inicializa la colección y BM25 de forma lazy."""
+        """Inicializa el vectorstore LangChain y BM25 de forma lazy."""
         if self._initialized:
-            return self._collection is not None
+            return self._vectorstore is not None
 
         self._initialized = True
-        client = _get_chroma_client()
-        if client is None:
-            print("⚠️  ChromaDB no disponible. Retriever en modo degradado.")
-            return False
+        self._vectorstore = _get_vectorstore()
 
-        try:
-            self._collection = client.get_collection(COLLECTION_NAME)
-        except Exception:
-            # Colección no existe, intentar ingestar
-            print("ℹ️  Colección no encontrada. Ejecutando ingesta automática...")
+        if self._vectorstore is None:
+            # Intentar ingestar automáticamente
+            print("[INFO] Vectorstore no encontrado. Ejecutando ingesta automática...")
             count = ingest()
             if count == 0:
                 return False
-            self._collection = client.get_collection(COLLECTION_NAME)
+            self._vectorstore = _get_vectorstore()
+            if self._vectorstore is None:
+                return False
+
+        # Verificar que tenga documentos
+        try:
+            doc_count = self._vectorstore._collection.count()
+            if doc_count == 0:
+                print("[INFO] Colección vacía. Ejecutando ingesta automática...")
+                count = ingest()
+                if count == 0:
+                    return False
+        except Exception:
+            pass
 
         # Construir índice BM25 sobre el corpus
         self._build_bm25_index()
         return True
 
     def _build_bm25_index(self) -> None:
-        """Construye el índice BM25 a partir de los documentos en ChromaDB."""
-        if self._collection is None:
+        """Construye el índice BM25 a partir de los documentos en Chroma."""
+        if self._vectorstore is None:
             return
 
-        # Obtener todos los documentos
-        result = self._collection.get(include=["documents"])
-        self._corpus = result["documents"] or []
-        self._corpus_ids = result["ids"] or []
+        # Obtener todos los documentos del vectorstore
+        try:
+            result = self._vectorstore._collection.get(include=["documents"])
+            self._corpus = result["documents"] or []
+        except Exception:
+            self._corpus = []
 
         if not self._corpus:
             return
@@ -84,16 +92,16 @@ class HybridRetriever:
             # Tokenizar por palabras para BM25
             tokenized = [doc.lower().split() for doc in self._corpus]
             self._bm25 = BM25Okapi(tokenized)
-            print(f"✅ Índice BM25 construido: {len(self._corpus)} documentos")
+            print(f"[OK] Índice BM25 construido: {len(self._corpus)} documentos")
         except ImportError:
-            print("⚠️  rank-bm25 no instalado. Solo búsqueda densa disponible.")
+            print("[WARN] rank-bm25 no instalado. Solo búsqueda densa disponible.")
             self._bm25 = None
 
     def query(self, question: str, k: Optional[int] = None) -> list[str]:
         """
         Busca los fragmentos más relevantes para una pregunta.
 
-        Combina resultados de búsqueda densa (ChromaDB embeddings) y
+        Combina resultados de búsqueda densa (LangChain Chroma) y
         léxica (BM25) para obtener mejor recall.
 
         Args:
@@ -109,23 +117,17 @@ class HybridRetriever:
         k = k or self.k
         results: dict[str, float] = {}  # doc_text -> combined_score
 
-        # 1) Búsqueda densa (embeddings)
+        # 1) Búsqueda densa (LangChain Chroma similarity_search_with_score)
         try:
-            dense_results = self._collection.query(
-                query_embeddings=self._embed_fn([question]),
-                n_results=min(k * 2, len(self._corpus)),
-                include=["documents", "distances"],
+            dense_results = self._vectorstore.similarity_search_with_score(
+                question, k=min(k * 2, max(len(self._corpus), 1))
             )
-            if dense_results["documents"]:
-                for doc, dist in zip(
-                    dense_results["documents"][0],
-                    dense_results["distances"][0],
-                ):
-                    # ChromaDB devuelve distancia L2; convertir a score de similitud
-                    score = 1.0 / (1.0 + dist)
-                    results[doc] = results.get(doc, 0) + score * self.dense_weight
+            for doc, score in dense_results:
+                # Chroma devuelve distancia L2; convertir a score de similitud
+                sim_score = 1.0 / (1.0 + score)
+                results[doc.page_content] = results.get(doc.page_content, 0) + sim_score * self.dense_weight
         except Exception as e:
-            print(f"⚠️  Error en búsqueda densa: {e}")
+            print(f"[WARN] Error en búsqueda densa: {e}")
 
         # 2) Búsqueda léxica (BM25)
         if self._bm25 is not None and self._corpus:
@@ -139,7 +141,7 @@ class HybridRetriever:
                     normalized = score / max_score
                     results[doc] = results.get(doc, 0) + normalized * self.bm25_weight
             except Exception as e:
-                print(f"⚠️  Error en búsqueda BM25: {e}")
+                print(f"[WARN] Error en búsqueda BM25: {e}")
 
         # 3) Ordenar por score combinado y tomar top-k
         sorted_results = sorted(results.items(), key=lambda x: x[1], reverse=True)
@@ -155,20 +157,14 @@ class HybridRetriever:
         k = k or self.k
         results: dict[str, float] = {}
 
-        # Dense
+        # Dense (LangChain)
         try:
-            dense_results = self._collection.query(
-                query_embeddings=self._embed_fn([question]),
-                n_results=min(k * 2, len(self._corpus)),
-                include=["documents", "distances"],
+            dense_results = self._vectorstore.similarity_search_with_score(
+                question, k=min(k * 2, max(len(self._corpus), 1))
             )
-            if dense_results["documents"]:
-                for doc, dist in zip(
-                    dense_results["documents"][0],
-                    dense_results["distances"][0],
-                ):
-                    score = 1.0 / (1.0 + dist)
-                    results[doc] = results.get(doc, 0) + score * self.dense_weight
+            for doc, score in dense_results:
+                sim_score = 1.0 / (1.0 + score)
+                results[doc.page_content] = results.get(doc.page_content, 0) + sim_score * self.dense_weight
         except Exception:
             pass
 

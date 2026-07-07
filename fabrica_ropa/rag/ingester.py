@@ -1,20 +1,15 @@
 """
 Ingester — Carga, chunking y almacenamiento de documentos en ChromaDB.
 
-Implementa §3.3 de la plantilla:
-  - Estrategia de chunking: Recursive, 800 tokens (~3200 chars), overlap 120 tokens
-  - Modelo de embeddings: sentence-transformers (local, gratuito)
-  - Vector store: ChromaDB (local, sin servidor externo)
+Implementa §3.3 de la plantilla usando componentes LangChain:
+  - Estrategia de chunking: RecursiveCharacterTextSplitter, 800 tokens (~3200 chars), overlap 120 tokens
+  - Modelo de embeddings: HuggingFaceEmbeddings (sentence-transformers, local, gratuito)
+  - Vector store: Chroma de LangChain (local, sin servidor externo)
 """
 from __future__ import annotations
 import os
-import re
 from pathlib import Path
 from typing import Optional
-
-# Lazy imports para que el módulo sea importable sin las dependencias pesadas
-_CHROMA_CLIENT = None
-_EMBED_MODEL = None
 
 # Parámetros de chunking (§3.3)
 CHUNK_SIZE_CHARS = 3200       # ~800 tokens (4 chars/token aprox)
@@ -27,120 +22,67 @@ DOCUMENTS_DIR = Path(__file__).resolve().parent / "documents"
 # Directorio de persistencia de ChromaDB
 CHROMA_PERSIST_DIR = Path(__file__).resolve().parent / ".chroma_db"
 
+# Cache global de embeddings y vectorstore
+_EMBEDDINGS = None
+_VECTORSTORE = None
 
-def _get_embed_model():
-    """Carga lazy del modelo de embeddings (sentence-transformers)."""
-    global _EMBED_MODEL
-    if _EMBED_MODEL is None:
+
+def _get_embeddings():
+    """Carga lazy del modelo de embeddings usando LangChain HuggingFaceEmbeddings."""
+    global _EMBEDDINGS
+    if _EMBEDDINGS is None:
         try:
-            from sentence_transformers import SentenceTransformer
+            from langchain_community.embeddings import HuggingFaceEmbeddings
             # Modelo ligero y multilingüe, buen balance calidad/velocidad
-            _EMBED_MODEL = SentenceTransformer("all-MiniLM-L6-v2")
-            print("✅ Modelo de embeddings cargado: all-MiniLM-L6-v2")
-        except ImportError:
-            print("⚠️  sentence-transformers no instalado. Usando embeddings mock.")
-            _EMBED_MODEL = None
-    return _EMBED_MODEL
-
-
-def _get_chroma_client():
-    """Obtiene o crea el cliente ChromaDB persistente."""
-    global _CHROMA_CLIENT
-    if _CHROMA_CLIENT is None:
-        try:
-            import chromadb
-            CHROMA_PERSIST_DIR.mkdir(parents=True, exist_ok=True)
-            _CHROMA_CLIENT = chromadb.PersistentClient(
-                path=str(CHROMA_PERSIST_DIR)
+            _EMBEDDINGS = HuggingFaceEmbeddings(
+                model_name="all-MiniLM-L6-v2",
+                model_kwargs={"device": "cpu"},
+                encode_kwargs={"normalize_embeddings": True},
             )
-            print(f"✅ ChromaDB inicializado en {CHROMA_PERSIST_DIR}")
+            print("[OK] Embeddings LangChain cargados: all-MiniLM-L6-v2")
         except ImportError:
-            print("⚠️  chromadb no instalado. RAG no disponible.")
-            _CHROMA_CLIENT = None
-    return _CHROMA_CLIENT
+            print("[WARN] langchain-community o sentence-transformers no instalado.")
+            _EMBEDDINGS = None
+    return _EMBEDDINGS
 
 
-class EmbeddingFunction:
-    """Wrapper de sentence-transformers para ChromaDB."""
+def _get_vectorstore(embeddings=None):
+    """Obtiene o crea el vectorstore Chroma vía LangChain."""
+    global _VECTORSTORE
+    if _VECTORSTORE is not None:
+        return _VECTORSTORE
+    if embeddings is None:
+        embeddings = _get_embeddings()
+    if embeddings is None:
+        return None
+    try:
+        from langchain_community.vectorstores import Chroma
+        CHROMA_PERSIST_DIR.mkdir(parents=True, exist_ok=True)
+        _VECTORSTORE = Chroma(
+            collection_name=COLLECTION_NAME,
+            embedding_function=embeddings,
+            persist_directory=str(CHROMA_PERSIST_DIR),
+        )
+        print(f"[OK] Chroma LangChain inicializado en {CHROMA_PERSIST_DIR}")
+        return _VECTORSTORE
+    except ImportError:
+        print("[WARN] chromadb o langchain-community no instalado. RAG no disponible.")
+        return None
 
-    def __init__(self):
-        self.model = _get_embed_model()
 
-    def __call__(self, input: list[str]) -> list[list[float]]:
-        if self.model is None:
-            # Embeddings mock: vectores aleatorios de 384 dimensiones
-            import random
-            return [[random.uniform(-1, 1) for _ in range(384)] for _ in input]
-        embeddings = self.model.encode(input, show_progress_bar=False)
-        return embeddings.tolist()
-
-
-def recursive_chunk(text: str, chunk_size: int = CHUNK_SIZE_CHARS,
-                    overlap: int = CHUNK_OVERLAP_CHARS) -> list[str]:
-    """
-    Divide texto en chunks con estrategia recursiva.
-
-    Intenta dividir por los separadores más grandes primero (secciones),
-    y baja a párrafos y líneas solo si es necesario.
-    """
-    separators = [
-        "\n\n\n",     # Secciones mayores
-        "\n\n",       # Párrafos
-        "\n",         # Líneas
-        ". ",         # Oraciones
-        " ",          # Palabras
-    ]
-
-    chunks: list[str] = []
-
-    def _split_recursive(text: str, sep_idx: int = 0) -> list[str]:
-        """Divide recursivamente usando separadores de mayor a menor."""
-        if len(text) <= chunk_size:
-            return [text.strip()] if text.strip() else []
-
-        if sep_idx >= len(separators):
-            # Sin más separadores: cortar bruto
-            result = []
-            for i in range(0, len(text), chunk_size - overlap):
-                piece = text[i:i + chunk_size].strip()
-                if piece:
-                    result.append(piece)
-            return result
-
-        sep = separators[sep_idx]
-        parts = text.split(sep)
-
-        result = []
-        current = ""
-        for part in parts:
-            candidate = (current + sep + part).strip() if current else part.strip()
-            if len(candidate) <= chunk_size:
-                current = candidate
-            else:
-                if current.strip():
-                    result.append(current.strip())
-                if len(part) > chunk_size:
-                    # Recursión con separador más fino
-                    result.extend(_split_recursive(part.strip(), sep_idx + 1))
-                    current = ""
-                else:
-                    current = part.strip()
-
-        if current.strip():
-            result.append(current.strip())
-        return result
-
-    raw_chunks = _split_recursive(text)
-
-    # Aplicar overlap: cada chunk incluye el final del anterior
-    final_chunks = []
-    for i, chunk in enumerate(raw_chunks):
-        if i > 0 and overlap > 0:
-            prev_tail = raw_chunks[i - 1][-overlap:]
-            chunk = prev_tail + " " + chunk
-        final_chunks.append(chunk.strip())
-
-    return final_chunks
+def _get_text_splitter():
+    """Crea el splitter LangChain RecursiveCharacterTextSplitter."""
+    try:
+        from langchain_text_splitters import RecursiveCharacterTextSplitter
+        return RecursiveCharacterTextSplitter(
+            chunk_size=CHUNK_SIZE_CHARS,
+            chunk_overlap=CHUNK_OVERLAP_CHARS,
+            separators=["\n\n\n", "\n\n", "\n", ". ", " "],
+            length_function=len,
+        )
+    except ImportError:
+        print("[WARN] langchain-text-splitters no instalado.")
+        return None
 
 
 def load_documents(directory: Optional[Path] = None) -> list[dict]:
@@ -152,10 +94,16 @@ def load_documents(directory: Optional[Path] = None) -> list[dict]:
     if directory is None:
         directory = DOCUMENTS_DIR
 
+    splitter = _get_text_splitter()
     documents = []
     for filepath in sorted(directory.glob("*.txt")):
         content = filepath.read_text(encoding="utf-8")
-        chunks = recursive_chunk(content)
+        if splitter:
+            chunks = splitter.split_text(content)
+        else:
+            # Fallback bruto si no hay splitter
+            chunks = [content[i:i + CHUNK_SIZE_CHARS]
+                      for i in range(0, len(content), CHUNK_SIZE_CHARS - CHUNK_OVERLAP_CHARS)]
         documents.append({
             "source": filepath.name,
             "content": content,
@@ -168,11 +116,11 @@ def load_documents(directory: Optional[Path] = None) -> list[dict]:
 
 def ingest(force: bool = False) -> int:
     """
-    Pipeline completo de ingesta:
+    Pipeline completo de ingesta con LangChain:
     1. Carga documentos del directorio
-    2. Los divide en chunks
-    3. Genera embeddings
-    4. Los almacena en ChromaDB
+    2. Los divide en chunks con RecursiveCharacterTextSplitter
+    3. Genera embeddings con HuggingFaceEmbeddings
+    4. Los almacena en Chroma vía LangChain
 
     Args:
         force: Si True, recrea la colección desde cero.
@@ -180,55 +128,69 @@ def ingest(force: bool = False) -> int:
     Returns:
         Número total de chunks ingestados.
     """
-    client = _get_chroma_client()
-    if client is None:
-        print("⚠️  ChromaDB no disponible. Saltando ingesta.")
+    global _VECTORSTORE
+
+    embeddings = _get_embeddings()
+    if embeddings is None:
+        print("[WARN] Embeddings no disponibles. Saltando ingesta.")
         return 0
 
-    embed_fn = EmbeddingFunction()
+    try:
+        from langchain_community.vectorstores import Chroma
+    except ImportError:
+        print("[WARN] Chroma no disponible. Saltando ingesta.")
+        return 0
 
-    # Crear o obtener la colección
+    # Si force, eliminar la colección existente
     if force:
-        try:
-            client.delete_collection(COLLECTION_NAME)
-            print(f"🗑️  Colección '{COLLECTION_NAME}' eliminada (force=True)")
-        except Exception:
-            pass
-
-    collection = client.get_or_create_collection(
-        name=COLLECTION_NAME,
-        metadata={"description": "Documentos de la Fábrica de Ropa para RAG"},
-    )
+        import shutil
+        if CHROMA_PERSIST_DIR.exists():
+            shutil.rmtree(CHROMA_PERSIST_DIR, ignore_errors=True)
+            print(f"🗑️  Directorio Chroma eliminado (force=True)")
+        _VECTORSTORE = None
 
     # Verificar si ya tiene datos
-    if collection.count() > 0 and not force:
-        print(f"ℹ️  Colección ya tiene {collection.count()} documentos. Usa force=True para reingestar.")
-        return collection.count()
+    vs = _get_vectorstore(embeddings)
+    if vs is not None and not force:
+        try:
+            existing = vs._collection.count()
+            if existing > 0:
+                print(f"[INFO] Colección ya tiene {existing} documentos. Usa force=True para reingestar.")
+                return existing
+        except Exception:
+            pass
 
     # Cargar y procesar documentos
     documents = load_documents()
     if not documents:
-        print("⚠️  No se encontraron documentos para ingestar.")
+        print("[WARN] No se encontraron documentos para ingestar.")
         return 0
 
     total_chunks = 0
+    all_texts = []
+    all_metadatas = []
+
     for doc in documents:
         chunks = doc["chunks"]
         if not chunks:
             continue
-
-        ids = [f"{doc['source']}_{i}" for i in range(len(chunks))]
-        metadatas = [{"source": doc["source"], "chunk_index": i} for i in range(len(chunks))]
-        embeddings = embed_fn(chunks)
-
-        collection.add(
-            ids=ids,
-            documents=chunks,
-            embeddings=embeddings,
-            metadatas=metadatas,
-        )
+        for i, chunk in enumerate(chunks):
+            all_texts.append(chunk)
+            all_metadatas.append({"source": doc["source"], "chunk_index": i})
         total_chunks += len(chunks)
-        print(f"  ✅ {doc['source']}: {len(chunks)} chunks ingestados")
+        print(f"  [OK] {doc['source']}: {len(chunks)} chunks preparados")
+
+    if all_texts:
+        # Crear vectorstore desde los textos (reemplaza el existente)
+        _VECTORSTORE = None  # Resetear cache
+        CHROMA_PERSIST_DIR.mkdir(parents=True, exist_ok=True)
+        _VECTORSTORE = Chroma.from_texts(
+            texts=all_texts,
+            embedding=embeddings,
+            metadatas=all_metadatas,
+            collection_name=COLLECTION_NAME,
+            persist_directory=str(CHROMA_PERSIST_DIR),
+        )
 
     print(f"\n🎉 Ingesta completa: {total_chunks} chunks en colección '{COLLECTION_NAME}'")
     return total_chunks

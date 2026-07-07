@@ -44,7 +44,7 @@ class EventBus:
                 handler(event)
             except Exception as e:
                 # En producción usar logging; aquí lo silenciamos para no romper
-                print(f"⚠️  Error en handler de evento '{event.event_name}': {e}")
+                print(f"[WARN] Error en handler de evento '{event.event_name}': {e}")
 
     def emit(self, source: AgentName, event_name: str, **data) -> SystemEvent:
         """Helper: construye y publica un evento en una sola llamada."""

@@ -4,6 +4,8 @@ Nodos del grafo LangGraph — §3.5 de la plantilla.
 Cada nodo es una función pura: recibe el estado y devuelve un parche
 con los campos a actualizar.
 
+Usa cadenas LangChain LCEL (prompt | llm | parser) en lugar de litellm directo.
+
 Nodos:
   - planificar: Descompone la pregunta en pasos
   - recuperar: Trae contexto del vector store (RAG)
@@ -12,6 +14,7 @@ Nodos:
 """
 from __future__ import annotations
 import json
+import re
 import sys
 from pathlib import Path
 
@@ -19,30 +22,55 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from langgraph_flow.state import EstadoPedido
-from config import LLM_API_KEY, LLM_MODEL, LLM_API_BASE, EXECUTION_MODE
+from config import EXECUTION_MODE, LLM_API_KEY, get_langchain_llm
+
+
+def _get_chain(system_prompt: str = ""):
+    """
+    Crea una cadena LCEL reutilizable para los nodos del grafo.
+
+    Retorna (chain, is_real) donde is_real indica si es LLM real o mock.
+    """
+    if EXECUTION_MODE != "real" or not LLM_API_KEY:
+        return None, False
+
+    try:
+        from langchain_core.prompts import ChatPromptTemplate
+        from langchain_core.output_parsers import StrOutputParser
+
+        llm = get_langchain_llm(temperature=0.3, max_tokens=1024)
+        if llm is None:
+            return None, False
+
+        if system_prompt:
+            prompt = ChatPromptTemplate.from_messages([
+                ("system", system_prompt),
+                ("human", "{input}"),
+            ])
+        else:
+            prompt = ChatPromptTemplate.from_messages([
+                ("human", "{input}"),
+            ])
+
+        chain = prompt | llm | StrOutputParser()
+        return chain, True
+    except ImportError:
+        return None, False
 
 
 def _call_llm(prompt: str) -> str:
     """
-    Llama al LLM configurado vía litellm.
+    Llama al LLM configurado vía cadena LangChain LCEL.
     Reutiliza la misma config del proyecto (config.py).
     """
-    if EXECUTION_MODE != "real" or not LLM_API_KEY:
+    chain, is_real = _get_chain()
+    if not is_real:
         return _mock_llm(prompt)
 
     try:
-        import litellm
-        response = litellm.completion(
-            model=LLM_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            api_key=LLM_API_KEY,
-            api_base=LLM_API_BASE,
-            max_tokens=1024,
-            temperature=0.3,
-        )
-        return response.choices[0].message.content or ""
+        return chain.invoke({"input": prompt})
     except Exception as e:
-        print(f"⚠️  LLM error en nodo LangGraph: {e}")
+        print(f"[WARN] LLM error en nodo LangGraph: {e}")
         return _mock_llm(prompt)
 
 
@@ -92,7 +120,6 @@ Consulta del cliente: "{pregunta}"
             pasos = data["pasos"]
     except (json.JSONDecodeError, TypeError):
         # Intentar extraer JSON embebido
-        import re
         match = re.search(r'\{[^}]+\}', raw)
         if match:
             try:
@@ -120,7 +147,7 @@ def nodo_recuperar(state: EstadoPedido) -> dict:
         from rag.retriever import retriever
         fragmentos = retriever.query(pregunta, k=4)
     except Exception as e:
-        print(f"⚠️  Error en RAG retriever: {e}")
+        print(f"[WARN] Error en RAG retriever: {e}")
         fragmentos = ["No se pudo recuperar información del catálogo."]
 
     return {

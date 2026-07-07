@@ -13,6 +13,15 @@ from agents.base import BaseAgent
 from core.mcp_messages import AgentName, OrderData
 from core.shared_state import SharedState
 
+# LangSmith tracing (§5.3)
+try:
+    from langsmith import traceable  # type: ignore
+except ImportError:
+    def traceable(*args, **kwargs):
+        def decorator(func): return func
+        if args and callable(args[0]): return args[0]
+        return decorator
+
 
 SYSTEM_PROMPT = """Eres un agente conversacional especializado en recolectar \
 datos para un pedido de confección textil. Debes recoger 8 datos:
@@ -51,6 +60,7 @@ class DataCollectorAgent(BaseAgent):
             system_prompt=SYSTEM_PROMPT,
         )
 
+    @traceable(name="DataCollectorAgent.collect")
     def collect(self, user_message: str, state: SharedState) -> tuple[OrderData, str, bool]:
         """
         Procesa un mensaje del cliente, extrae datos, actualiza el estado y

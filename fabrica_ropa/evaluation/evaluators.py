@@ -20,22 +20,25 @@ from config import LLM_API_KEY, LLM_MODEL, LLM_API_BASE, EXECUTION_MODE
 
 
 def _call_judge(prompt: str) -> str:
-    """Llama al LLM evaluador (LLM-as-judge)."""
+    """Llama al LLM evaluador (LLM-as-judge) vía cadena LangChain LCEL."""
     if EXECUTION_MODE != "real" or not LLM_API_KEY:
         return "0.85"  # Score mock
     try:
-        import litellm
-        response = litellm.completion(
-            model=LLM_MODEL,
-            messages=[{"role": "user", "content": prompt}],
-            api_key=LLM_API_KEY,
-            api_base=LLM_API_BASE,
-            max_tokens=128,
-            temperature=0.0,
-        )
-        return response.choices[0].message.content or "0.5"
+        from config import get_langchain_llm
+        from langchain_core.prompts import ChatPromptTemplate
+        from langchain_core.output_parsers import StrOutputParser
+
+        llm = get_langchain_llm(temperature=0.0, max_tokens=128)
+        if llm is None:
+            return "0.5"
+
+        chain = ChatPromptTemplate.from_messages([
+            ("human", "{input}"),
+        ]) | llm | StrOutputParser()
+
+        return chain.invoke({"input": prompt})
     except Exception as e:
-        print(f"⚠️  Error en LLM judge: {e}")
+        print(f"[WARN] Error en LLM judge: {e}")
         return "0.5"
 
 

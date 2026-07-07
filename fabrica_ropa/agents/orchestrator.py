@@ -77,7 +77,7 @@ class Orchestrator:
         elif state.stage == ConversationStage.WAITING_CONFIRMATION:
             reply = self._handle_confirmation(user_message, state)
         elif state.stage == ConversationStage.COMPLETE:
-            reply = "✅ Tu pedido ya fue procesado. ¡Gracias!"
+            reply = "[OK] Tu pedido ya fue procesado. ¡Gracias!"
         elif state.stage == ConversationStage.REJECTED:
             reply = "Lo siento, no podemos atender ese tipo de pedido. ¡Gracias por contactarnos!"
         else:
@@ -140,6 +140,7 @@ class Orchestrator:
             state.transition_to(ConversationStage.NOTIFYING)
             notif = self.notifier.notify(state)
             state.transition_to(ConversationStage.COMPLETE)
+            assert state.quote_result is not None
             return (
                 f"✅ Pedido registrado con ID: **{reg.pedido_id}**\n"
                 f"📧 Constancia enviada a {notif.destinatario}\n"
@@ -149,6 +150,68 @@ class Orchestrator:
             )
 
         return "Por favor confirma con un 'sí' para continuar, o 'no' para cancelar."
+
+    # =========================================================================
+    # FORMULARIO: procesa los 8 datos de un golpe (sin chat largo)
+    # =========================================================================
+    def handle_form_submission(self, form_data: dict, state: SharedState) -> str:
+        """
+        Procesa los 8 datos del pedido enviados desde el formulario interactivo.
+        Salta la etapa COLLECTING_DATA y va directo a QUOTING → WAITING_CONFIRMATION.
+
+        Args:
+            form_data: Dict con los 8 campos del pedido.
+            state: Estado compartido.
+
+        Returns:
+            Respuesta con la cotización para mostrar al usuario.
+        """
+        from core.mcp_messages import MCPMessage, MessageType, AgentName
+
+        # 1) Registrar el envío del formulario como mensaje MCP
+        state.append_message(MCPMessage(
+            sender=AgentName.USER,
+            receiver=AgentName.ORCHESTRATOR,
+            message_type=MessageType.USER_INPUT,
+            payload={"type": "form_submission", "data": form_data},
+        ))
+
+        # 2) Llenar los 8 datos de un golpe en el estado
+        state.update_order_data(**form_data)
+
+        # 3) Emitir evento de recolección completada
+        from core.event_bus import event_bus
+        from core.mcp_messages import AgentName as AN
+        event_bus.emit(AN.DATA_COLLECTOR, "data_collection_completed",
+                       data=state.order_data.model_dump(), method="form")
+
+        # 4) Transicionar a cotización directamente
+        state.transition_to(ConversationStage.QUOTING)
+        quote = self.pricing.quote(state.order_data, state)
+
+        # 5) Pasar a espera de confirmación
+        state.transition_to(ConversationStage.WAITING_CONFIRMATION)
+
+        # 6) Generar respuesta
+        resumen_form = (
+            "📋 **Datos del pedido recibidos:**\n"
+            f"• **{form_data.get('tipo_prenda', '')}** × {form_data.get('cantidad', 0)} unidades\n"
+            f"• Talla: {form_data.get('talla', '')} · Color: {form_data.get('color', '')}\n"
+            f"• Acabado: {form_data.get('acabado', 'ninguno')}\n"
+            f"• Cliente: {form_data.get('nombre', '')} ({form_data.get('email', '')})\n"
+            f"• Entrega: {form_data.get('fecha_entrega', '')}\n\n"
+        )
+
+        reply = resumen_form + quote.resumen_texto
+
+        state.append_assistant_message(reply)
+        state.append_message(MCPMessage(
+            sender=AgentName.ORCHESTRATOR,
+            receiver=AgentName.USER,
+            message_type=MessageType.USER_OUTPUT,
+            payload={"content": reply, "type": "quote_after_form"},
+        ))
+        return reply
 
     # =========================================================================
     # Event handlers (suscripciones al event bus)

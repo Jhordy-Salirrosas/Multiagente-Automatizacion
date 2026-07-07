@@ -10,6 +10,14 @@ from pathlib import Path
 
 from config import EMAILS_OUTPUT_DIR, EMPRESA_NOMBRE, EMPRESA_EMAIL, EMPRESA_TELEFONO
 
+# LangChain @tool — expone la herramienta como tool LangChain (§3.4)
+try:
+    from langchain_core.tools import tool as langchain_tool  # type: ignore
+except ImportError:
+    def langchain_tool(func):
+        """No-op si langchain_core no está instalado."""
+        return func
+
 
 class EmailTool:
     """Tool de notificación. Persiste el correo como HTML."""
@@ -60,3 +68,24 @@ class EmailTool:
   </div>
 </body>
 </html>"""
+
+
+# =============================================================================
+# LangChain Tool — función standalone para uso con agentes LangChain (§3.4)
+# =============================================================================
+
+@langchain_tool
+def send_email_notification(destinatario: str, asunto: str, cuerpo_html: str) -> str:
+    """Envía un email de constancia de pedido (simulado).
+
+    Genera un archivo HTML en disco con la constancia formal del pedido.
+    Devuelve la ruta del archivo generado.
+
+    Args:
+        destinatario: Email del cliente destinatario.
+        asunto: Asunto del correo.
+        cuerpo_html: Contenido HTML del cuerpo del correo.
+    """
+    tool = EmailTool()
+    ruta = tool.send(destinatario=destinatario, asunto=asunto, cuerpo_html=cuerpo_html)
+    return f"Email enviado a {destinatario}. Archivo: {ruta}"

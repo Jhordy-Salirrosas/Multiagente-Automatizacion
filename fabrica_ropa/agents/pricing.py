@@ -14,6 +14,15 @@ from core.mcp_messages import AgentName, OrderData, QuoteResult
 from core.shared_state import SharedState
 from config import PRICE_TABLE_PATH
 
+# LangSmith tracing (§5.3)
+try:
+    from langsmith import traceable  # type: ignore
+except ImportError:
+    def traceable(*args, **kwargs):
+        def decorator(func): return func
+        if args and callable(args[0]): return args[0]
+        return decorator
+
 
 SYSTEM_PROMPT = """Eres un agente de cotización para una fábrica de ropa. \
 Recibes un JSON con los números YA CALCULADOS y debes generar un resumen \
@@ -42,6 +51,7 @@ class PricingAgent(BaseAgent):
         with open(PRICE_TABLE_PATH, encoding="utf-8") as f:
             return json.load(f)
 
+    @traceable(name="PricingAgent.quote")
     def quote(self, order: OrderData, state: SharedState) -> QuoteResult:
         """Calcula la cotización y la almacena en el estado compartido."""
         # 1) Resolver precio unitario por tipo de prenda
@@ -122,7 +132,7 @@ class PricingAgent(BaseAgent):
             "Recuerda: solo formateas, no cambies los números."
         )
         raw = self.run(prompt, state)
-        # Limpiar el ruido que Swarms agrega ([timestamp] System:, Human:, etc.)
+        # Limpiar el output del LLM (extract_agent_text retorna texto limpio con LCEL)
         clean = self.extract_agent_text(raw).strip()
         if not clean or len(clean) < 20:
             # Fallback: formateamos nosotros si el LLM falla

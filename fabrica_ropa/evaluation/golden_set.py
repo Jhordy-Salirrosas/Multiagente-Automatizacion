@@ -62,7 +62,7 @@ GOLDEN_SET: list[GoldenCase] = [
     GoldenCase(
         case_id="C-04",
         entrada="¿Cuánto cuesta un polo con estampado?",
-        salida_esperada="S/ 25.00 + S/ 8.00 de estampado = S/ 33.00 por unidad",
+        salida_esperada="S/ 35.00 + S/ 5.00 de estampado = S/ 40.00 por unidad",
         categoria="rag",
         requisito="RF-02",
         notas="Debe combinar precio base + acabado del catálogo",
@@ -88,7 +88,7 @@ GOLDEN_SET: list[GoldenCase] = [
     GoldenCase(
         case_id="C-07",
         entrada="100 polos bordados",
-        salida_esperada="precio_unit=25+12=37, subtotal=3700, desc=15%=-555, total=3145, adelanto=1572.50",
+        salida_esperada="precio_unit=35+10=45, subtotal=4500, desc=15%=-675, total=3825, adelanto=1912.50",
         categoria="cotizacion",
         requisito="RF-03",
         notas="Cálculo completo con descuento del 15%",
@@ -96,7 +96,7 @@ GOLDEN_SET: list[GoldenCase] = [
     GoldenCase(
         case_id="C-08",
         entrada="200 polos sin acabado",
-        salida_esperada="precio_unit=25, subtotal=5000, desc=20%=-1000, total=4000, adelanto=2000",
+        salida_esperada="precio_unit=35, subtotal=7000, desc=20%=-1400, total=5600, adelanto=2800",
         categoria="cotizacion",
         requisito="RF-03",
         notas="Descuento máximo del 20%",

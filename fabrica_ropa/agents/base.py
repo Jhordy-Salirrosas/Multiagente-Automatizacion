@@ -1,18 +1,18 @@
-"""
-BaseAgent — Wrapper estandarizado sobre el LLM (vía swarms.Agent + litellm).
+﻿"""
+BaseAgent — Wrapper estandarizado sobre el LLM usando LangChain LCEL.
 
-Soporta GitHub Models, OpenAI, Gemini y cualquier endpoint OpenAI-compatible.
+Usa ChatOpenAI (compatible con GitHub Models, OpenAI, cualquier endpoint
+OpenAI-compatible) + ChatPromptTemplate + StrOutputParser como cadena LCEL.
 
 Decisiones de diseño:
-  - **Endpoint configurable**: pasamos `llm_base_url` y `llm_api_key` DIRECTAMENTE
-    a swarms.Agent, en vez de depender de variables de entorno globales que
-    se contaminan entre proveedores.
+  - **LangChain LCEL**: prompt | llm | parser como cadena composable.
   - **Stateless por llamada**: cada `run()` envía SOLO el system_prompt + el
-    prompt del turno actual. NO usamos la "Persistent Memory" interna de
-    swarms.Agent que acumulaba el historial de TODOS los turnos previos.
+    prompt del turno actual. NO acumula historial entre invocaciones.
   - **Retry con backoff exponencial** en rate limits (HTTP 429).
   - **Fallback automático a modo mock** si el retry final falla, para que la
     demo NUNCA se rompa frente al jurado.
+  - **Tracing con LangSmith**: las cadenas LCEL se trazan automáticamente
+    cuando LANGSMITH_TRACING=true.
 """
 from __future__ import annotations
 import json
@@ -24,7 +24,20 @@ from core.mcp_messages import MCPMessage, AgentName, MessageType
 from core.event_bus import event_bus
 from core.metrics import metrics
 from core.shared_state import SharedState
-from config import EXECUTION_MODE, LLM_MODEL, LLM_API_KEY, LLM_API_BASE
+from config import EXECUTION_MODE, LLM_API_KEY, get_langchain_llm
+
+# LangSmith tracing (§5.3): decorador @traceable para observabilidad.
+# Si langsmith no está instalado, usamos un decorador no-op.
+try:
+    from langsmith import traceable  # type: ignore
+except ImportError:
+    def traceable(*args, **kwargs):
+        """No-op decorator cuando langsmith no está instalado."""
+        def decorator(func):
+            return func
+        if args and callable(args[0]):
+            return args[0]
+        return decorator
 
 
 # Errores que justifican retry con backoff
@@ -43,7 +56,7 @@ class BaseAgent:
     Wrapper común para todos los agentes especializados.
 
     Modos:
-      - "real": usa swarms.Agent → litellm → LLM real
+      - "real": usa LangChain LCEL → ChatOpenAI → LLM real
       - "mock": usa _default_mock_response() (override en subclases)
     """
 
@@ -54,85 +67,53 @@ class BaseAgent:
         self,
         agent_name: AgentName,
         system_prompt: str,
-        model_name: str = LLM_MODEL,
+        model_name: str | None = None,
         max_loops: int = 1,
         mock_response: Optional[str] = None,
     ):
         self.agent_name = agent_name
         self.system_prompt = system_prompt
-        self.model_name = model_name
-        self.max_loops = max_loops
         self.mock_response = mock_response
-        self._swarm_agent = None
+        self._chain = None
         self._rate_limited_until: float = 0.0
         self._initialize()
 
     def _initialize(self) -> None:
-        """Inicializa swarms.Agent si estamos en modo real."""
+        """Inicializa la cadena LangChain LCEL si estamos en modo real."""
         if EXECUTION_MODE != "real":
             print(f"ℹ️  {self.agent_name.value}: modo MOCK (sin LLM)")
             return
         if not LLM_API_KEY:
-            print(f"⚠️  {self.agent_name.value}: LLM_API_KEY vacío, cayendo a MOCK")
+            print(f"[WARN]  {self.agent_name.value}: LLM_API_KEY vacío, cayendo a MOCK")
             return
         try:
-            from swarms import Agent as SwarmsAgent
-            # ► Construir kwargs base. Pasamos llm_base_url y llm_api_key
-            #   DIRECTAMENTE para que swarms los reenvíe a litellm con esa
-            #   exacta configuración, sin contaminación de env vars.
-            agent_kwargs = dict(
-                agent_name=self.agent_name.value,
-                system_prompt=self.system_prompt,
-                model_name=self.model_name,
-                max_loops=self.max_loops,
-                # ► Endpoint y key explícitos (lo que arregla GitHub Models)
-                llm_base_url=LLM_API_BASE,
-                llm_api_key=LLM_API_KEY,
-                # ► CRÍTICO: desactivar persistencia interna para no inflar prompts
-                #   NOTA: no pasamos long_term_memory=None porque algunas versiones
-                #   de swarms intentan .add() sobre él. Mejor dejar el default y
-                #   limpiar la memoria antes de cada llamada (ver _clear_swarm_memory).
-                autosave=False,
-                saved_state_path=None,
-                # ► Sin verbose y sin streaming para output limpio
-                verbose=False,
-                streaming_on=False,
-                output_type="str",
-                dynamic_temperature_enabled=False,
-                # ► Sin retries internos de swarms (los manejamos nosotros)
-                retry_attempts=1,
-            )
-            self._swarm_agent = SwarmsAgent(**agent_kwargs)
-            print(f"✅ {self.agent_name.value}: inicializado con {self.model_name} @ {LLM_API_BASE}")
-        except TypeError as e:
-            # Versión vieja de swarms que no acepta llm_base_url/llm_api_key:
-            # caer a inicialización vía env vars (que config.py ya pobló)
-            print(f"ℹ️  {self.agent_name.value}: swarms no acepta llm_base_url, "
-                  f"usando env vars OPENAI_API_BASE/OPENAI_API_KEY")
-            try:
-                from swarms import Agent as SwarmsAgent
-                self._swarm_agent = SwarmsAgent(
-                    agent_name=self.agent_name.value,
-                    system_prompt=self.system_prompt,
-                    model_name=self.model_name,
-                    max_loops=self.max_loops,
-                    autosave=False,
-                    verbose=False,
-                    streaming_on=False,
-                    output_type="str",
-                    dynamic_temperature_enabled=False,
-                    retry_attempts=1,
-                )
-            except Exception as e2:
-                print(f"⚠️  {self.agent_name.value}: fallo también con env vars: {e2}")
-                self._swarm_agent = None
+            from langchain_core.prompts import ChatPromptTemplate
+            from langchain_core.output_parsers import StrOutputParser
+
+            llm = get_langchain_llm(temperature=0.3, max_tokens=1024)
+            if llm is None:
+                print(f"[WARN]  {self.agent_name.value}: no se pudo crear LLM, cayendo a MOCK")
+                return
+
+            # ► Cadena LCEL: prompt → llm → parser
+            prompt_template = ChatPromptTemplate.from_messages([
+                ("system", self.system_prompt),
+                ("human", "{prompt}"),
+            ])
+            self._chain = prompt_template | llm | StrOutputParser()
+            print(f"✅ {self.agent_name.value}: inicializado con LangChain LCEL")
+
+        except ImportError as e:
+            print(f"[WARN]  {self.agent_name.value}: falta dependencia LangChain: {e}")
+            self._chain = None
         except Exception as e:
-            print(f"⚠️  {self.agent_name.value}: no se pudo inicializar: {type(e).__name__}: {e}")
-            self._swarm_agent = None
+            print(f"[WARN]  {self.agent_name.value}: no se pudo inicializar: {type(e).__name__}: {e}")
+            self._chain = None
 
     # =========================================================================
     # Ejecución principal
     # =========================================================================
+    @traceable(name="BaseAgent.run")
     def run(self, prompt: str, state: SharedState) -> str:
         """Ejecuta el agente sobre un prompt. Mide, traza MCP, retry, fallback."""
         request_msg = MCPMessage(
@@ -168,14 +149,14 @@ class BaseAgent:
         if now < self._rate_limited_until:
             return self._safe_mock(prompt, reason="rate_limit_cooldown")
 
-        if self._swarm_agent is None:
+        if self._chain is None:
             return self._safe_mock(prompt, reason="no_llm_initialized")
 
         last_error: Optional[Exception] = None
         for attempt in range(self.MAX_RETRIES):
             try:
-                self._clear_swarm_memory()
-                output = self._swarm_agent.run(prompt)
+                # ► Invocación LCEL: output limpio sin ruido de timestamps
+                output = self._chain.invoke({"prompt": prompt})
                 if not isinstance(output, str):
                     output = str(output)
                 return output
@@ -184,36 +165,16 @@ class BaseAgent:
                 err_msg = str(e)
                 if any(sig in err_msg for sig in _RETRYABLE_ERROR_SIGNATURES):
                     wait = self.INITIAL_BACKOFF_SECONDS * (2 ** attempt)
-                    print(f"⚠️  {self.agent_name.value}: rate limit, "
+                    print(f"[WARN]  {self.agent_name.value}: rate limit, "
                           f"reintento {attempt+1}/{self.MAX_RETRIES} en {wait:.1f}s...")
                     time.sleep(wait)
                     continue
-                print(f"⚠️  {self.agent_name.value}: error no recuperable: {type(e).__name__}: {str(e)[:200]}")
+                print(f"[WARN]  {self.agent_name.value}: error no recuperable: {type(e).__name__}: {str(e)[:200]}")
                 break
 
         self._rate_limited_until = time.time() + 60.0
-        print(f"⚠️  {self.agent_name.value}: cae a modo mock por 60s")
+        print(f"[WARN]  {self.agent_name.value}: cae a modo mock por 60s")
         return self._safe_mock(prompt, reason="all_retries_failed")
-
-    def _clear_swarm_memory(self) -> None:
-        """
-        Limpia memoria interna acumulada en swarms.Agent ANTES de cada llamada.
-
-        IMPORTANTE: lo hacemos de forma MUY conservadora: solo llamamos a métodos
-        públicos de limpieza si existen; NUNCA tocamos atributos directamente
-        porque las versiones recientes de swarms los requieren no-None y se
-        rompen con `AttributeError: 'NoneType' object has no attribute 'add'`.
-        """
-        if self._swarm_agent is None:
-            return
-        for method_name in ("clear_history", "reset_conversation"):
-            method = getattr(self._swarm_agent, method_name, None)
-            if callable(method):
-                try:
-                    method()
-                    return
-                except Exception:
-                    pass
 
     def _safe_mock(self, prompt: str, reason: str = "") -> str:
         """Devuelve la respuesta mock sin tirar excepción."""
@@ -235,8 +196,7 @@ class BaseAgent:
         Extrae el JSON más relevante del texto. Robusto a:
           - JSON puro
           - JSON dentro de ```json fences```
-          - JSON dentro de output ruidoso (Swarms agrega el system prompt y
-            timestamps al output; el JSON real está al final).
+          - JSON dentro de output ruidoso (el JSON real está al final).
 
         Estrategia:
           1. Intenta parsear todo el texto.
@@ -302,42 +262,13 @@ class BaseAgent:
 
     def extract_agent_text(self, text: str) -> str:
         """
-        Extrae SOLO la respuesta de texto del agente del output ruidoso que
-        Swarms devuelve (que incluye [timestamp] System:, [timestamp] Human:,
-        etc.).
-
-        Estrategia: dividir por marcadores `[YYYY-...] <Quién>:` y tomar el
-        último bloque que no sea System ni Human. Si no hay marcadores, devuelve
-        el texto tal cual.
+        Con LangChain LCEL, el output ya es limpio (sin timestamps de Swarms).
+        Se mantiene el método por compatibilidad con subclases que lo llaman,
+        pero ahora simplemente retorna el texto limpio.
         """
         if not text:
             return ""
-        # Patrón: [timestamp] <Speaker>: <contenido>
-        # Speaker puede ser "System", "Human", "AI", o el nombre del agente.
-        pattern = re.compile(
-            r"\[\d{4}-\d{2}-\d{2}T[\d:.]+\]\s+([A-Za-z][\w]*?):\s*",
-            re.MULTILINE,
-        )
-        matches = list(pattern.finditer(text))
-        if not matches:
-            return text.strip()
-
-        # Construir los bloques: cada uno es desde el final de un match hasta
-        # el inicio del siguiente.
-        blocks: list[tuple[str, str]] = []
-        for i, m in enumerate(matches):
-            speaker = m.group(1)
-            start = m.end()
-            end = matches[i + 1].start() if i + 1 < len(matches) else len(text)
-            content = text[start:end].strip()
-            blocks.append((speaker, content))
-
-        # Buscar el último bloque que NO sea System ni Human (es del agente).
-        for speaker, content in reversed(blocks):
-            if speaker.lower() not in ("system", "human", "user"):
-                return content
-        # Fallback: devolver el último bloque sea cual sea
-        return blocks[-1][1] if blocks else text.strip()
+        return text.strip()
 
     def emit_event(self, event_name: str, **data: Any) -> None:
         """Publica un evento en el event bus."""
