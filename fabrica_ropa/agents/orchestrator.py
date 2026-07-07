@@ -105,10 +105,16 @@ class Orchestrator:
                 f"(confección de ropa). {result.reason}\n"
                 "¡Gracias por contactarnos!"
             )
-        # Si pasó la validación, dejamos que DataCollector procese el mismo
-        # mensaje (puede traer datos útiles ya)
+        # Si pasó la validación, dejamos que DataCollector procese el mensaje
+        # internamente para extraer datos, pero respondemos con un saludo profesional B2B.
+        self.data_collector.collect(user_message, state)
         state.transition_to(ConversationStage.COLLECTING_DATA)
-        return self._handle_data_collection(user_message, state)
+        return (
+            "¡Hola! Qué gusto saludarte. Has llegado al lugar indicado, "
+            "nos encantará ayudarte con tu pedido textil. Para poder brindarte "
+            "una cotización exacta al instante, he habilitado un breve formulario "
+            "aquí abajo. Por favor, complétalo 👇"
+        )
 
     def _handle_data_collection(self, user_message: str, state: SharedState) -> str:
         """Invoca DataCollectorAgent."""

@@ -18,7 +18,7 @@ from pathlib import Path
 # Asegurar que el paquete sea importable
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import streamlit as st
+import streamlit as st  # type: ignore
 
 from agents.orchestrator import Orchestrator
 from core.shared_state import SharedState, ConversationStage
@@ -183,14 +183,8 @@ st.caption(
     "Orquestador + Validator + DataCollector + Pricing + Registry + Notifier"
 )
 
-# Tabs: Chat, Métricas, Eventos MCP, RAG, Deep Agent, Evaluación
-tab_chat, tab_metrics, tab_events, tab_rag, tab_deep, tab_eval = st.tabs([
-    "💬 Chat", "📊 Métricas", "🔍 Trazabilidad MCP",
-    "📚 RAG Demo", "🤖 Deep Agent", "🧪 Evaluación"
-])
-
-# --------- TAB CHAT ----------
-with tab_chat:
+# La interfaz principal es de un solo panel para el cliente
+if True:
     # Renderizar historial
     for msg in st.session_state.messages:
         with st.chat_message(msg["role"], avatar="🤖" if msg["role"] == "assistant" else "👤"):
@@ -213,7 +207,7 @@ with tab_chat:
             _pt = json.load(_f)
 
         st.markdown("---")
-        st.markdown("### 📋 Formulario de Pedido")
+        st.markdown("### 📋 Completemos los detalles de tu cotización")
         st.caption("Selecciona los detalles de tu pedido y obtendrás la cotización al instante.")
 
         with st.form("order_form", clear_on_submit=False):
@@ -374,6 +368,19 @@ with tab_chat:
                         st.error(f"[WARN] Error al procesar: {e}")
 
     # ─────────────────────────────────────────────────────────────────────────
+    # BOTÓN DE DESCARGA DE COTIZACIÓN (Solo en espera de confirmación)
+    # ─────────────────────────────────────────────────────────────────────────
+    if state.stage == ConversationStage.WAITING_CONFIRMATION and state.quote_result:
+        st.info("💡 Tu cotización está lista. Puedes descargarla para tu registro antes de confirmar.")
+        st.download_button(
+            label="📥 Descargar Cotización (TXT)",
+            data=state.quote_result.resumen_texto,
+            file_name=f"cotizacion_{state.order_data.nombre or 'cliente'}.txt",
+            mime="text/plain",
+            use_container_width=True
+        )
+
+    # ─────────────────────────────────────────────────────────────────────────
     # INPUT DE CHAT (para la interacción inicial y la confirmación final)
     # ─────────────────────────────────────────────────────────────────────────
     _show_chat_input = (
@@ -410,276 +417,6 @@ with tab_chat:
             st.rerun()
 
 
-# --------- TAB MÉTRICAS ----------
-with tab_metrics:
-    summary = metrics.summary()
-    if summary.get("total_invocations", 0) == 0:
-        st.info("Aún no hay invocaciones registradas. Envía un mensaje para generar métricas.")
-    else:
-        c1, c2, c3, c4 = st.columns(4)
-        c1.metric("Total invocaciones", summary["total_invocations"])
-        c2.metric("Tasa de éxito", f"{summary['success_rate'] * 100:.1f}%")
-        c3.metric("Tokens estimados", f"{summary['total_tokens_estimate']:,}")
-        c4.metric("Latencia avg (ms)", f"{summary['avg_latency_ms']:.1f}")
-
-        st.divider()
-        st.markdown("#### Por agente")
-        by_agent_rows = []
-        for agent_name, stats in summary["by_agent"].items():
-            by_agent_rows.append({
-                "Agente": agent_name,
-                "Invocaciones": stats["invocations"],
-                "Éxito %": f"{stats['success_rate'] * 100:.0f}",
-                "Lat. avg (ms)": f"{stats['avg_latency_ms']:.1f}",
-                "Lat. max (ms)": f"{stats['max_latency_ms']:.1f}",
-                "Tokens": stats["tokens_estimate"],
-            })
-        st.dataframe(by_agent_rows, use_container_width=True, hide_index=True)
-
-
-# --------- TAB TRAZABILIDAD MCP ----------
-with tab_events:
-    st.markdown("#### 📜 Últimos mensajes MCP")
-    st.caption("Comunicación entre agentes vía JSON Schema validado (Pydantic).")
-
-    msgs = state.message_history[-15:][::-1]  # últimos 15, más recientes primero
-    if not msgs:
-        st.info("No hay mensajes MCP aún.")
-    else:
-        for m in msgs:
-            with st.expander(
-                f"`{m.message_type.value}` · "
-                f"{m.sender.value} → {m.receiver.value} · "
-                f"{m.timestamp.strftime('%H:%M:%S')}"
-            ):
-                st.json(m.payload)
-
-    st.divider()
-    st.markdown("#### 🎯 Eventos del Event Bus")
-    events = event_bus.get_event_log()[-15:][::-1]
-    if not events:
-        st.info("No hay eventos publicados aún.")
-    else:
-        for ev in events:
-            with st.expander(
-                f"`{ev.event_name}` · {ev.source.value} · "
-                f"{ev.timestamp.strftime('%H:%M:%S')}"
-            ):
-                st.json(ev.data)
-
-
-# --------- TAB RAG DEMO ----------
-with tab_rag:
-    st.markdown("### 📚 RAG — Retrieval-Augmented Generation")
-    st.caption(
-        "Subsistema de recuperación de información del catálogo (§3.3). "
-        "Usa chunking recursivo + embeddings + ChromaDB + BM25 híbrido."
-    )
-
-    rag_query = st.text_input(
-        "Pregunta sobre el catálogo:",
-        placeholder="¿Cuánto cuestan los polos con estampado?",
-        key="rag_input",
-    )
-
-    col_rag1, col_rag2 = st.columns(2)
-    with col_rag1:
-        rag_k = st.slider("Fragmentos a recuperar (k)", 1, 8, 4)
-    with col_rag2:
-        show_scores = st.checkbox("Mostrar scores", value=True)
-
-    if st.button("🔍 Buscar en el catálogo", key="rag_search") and rag_query:
-        with st.spinner("Buscando en el vector store..."):
-            try:
-                from rag.retriever import HybridRetriever
-                ret = HybridRetriever(k=rag_k)
-                if show_scores:
-                    results = ret.query_with_scores(rag_query, k=rag_k)
-                    for i, (doc, score) in enumerate(results):
-                        with st.expander(f"📄 Fragmento {i+1} (score: {score:.3f})"):
-                            st.markdown(doc)
-                else:
-                    results = ret.query(rag_query, k=rag_k)
-                    for i, doc in enumerate(results):
-                        with st.expander(f"📄 Fragmento {i+1}"):
-                            st.markdown(doc)
-
-                # Generar respuesta con LangGraph
-                st.divider()
-                st.markdown("#### 💬 Respuesta generada (LangGraph RAG)")
-                with st.spinner("Generando respuesta con contexto..."):
-                    try:
-                        from langgraph_flow.graph import run_query
-                        lg_result = run_query(rag_query)
-                        st.success(lg_result.get("respuesta", "Sin respuesta"))
-                        st.caption(f"🔁 Iteraciones: {lg_result.get('iteraciones', 0)} | "
-                                   f"📋 Plan: {lg_result.get('plan', [])}")
-                    except Exception as e:
-                        st.warning(f"LangGraph no disponible: {e}")
-            except Exception as e:
-                st.error(f"Error en RAG: {e}")
-
-    # Botón de ingesta
-    st.divider()
-    st.markdown("#### 🔄 Gestión del Vector Store")
-    if st.button("📥 Re-ingestar documentos", key="rag_ingest"):
-        with st.spinner("Ingestando documentos..."):
-            try:
-                from rag.ingester import ingest
-                count = ingest(force=True)
-                st.success(f"[OK] {count} chunks ingestados en ChromaDB")
-            except Exception as e:
-                st.error(f"Error en ingesta: {e}")
-
-
-# --------- TAB DEEP AGENT ----------
-with tab_deep:
-    st.markdown("### 🤖 Deep Agent — Planificación + Sub-agentes")
-    st.caption(
-        "Patrón Deep Agent (§3.6): planificador + Investigador + Redactor + Crítico. "
-        "Resuelve tareas complejas con ciclos de refinamiento."
-    )
-
-    deep_task = st.text_area(
-        "Describe la tarea:",
-        placeholder="Compara precios de polos con y sin estampado para 100 unidades, incluyendo descuentos",
-        key="deep_input",
-        height=80,
-    )
-    deep_max_iter = st.slider("Máx iteraciones", 1, 5, 3, key="deep_iter")
-
-    if st.button("🚀 Ejecutar Deep Agent", key="deep_run") and deep_task:
-        with st.spinner("Deep Agent trabajando..."):
-            try:
-                from deep_agent.graph import run_deep_agent
-                result = run_deep_agent(deep_task, max_iterations=deep_max_iter)
-
-                # Mostrar resultados paso a paso
-                st.markdown("#### 📋 Plan generado")
-                for i, paso in enumerate(result.get("plan", []), 1):
-                    st.markdown(f"{i}. {paso}")
-
-                st.markdown("#### 🔍 Hallazgos del Investigador")
-                for h in result.get("hallazgos", []):
-                    st.markdown(f"- {h}")
-
-                st.markdown("#### [OK] Evaluación del Crítico")
-                critica = result.get("critica", {})
-                if critica:
-                    icon = "[OK]" if critica.get("aprobado") else "[FAIL]"
-                    st.markdown(f"{icon} Puntuación: **{critica.get('puntuacion', 'N/A')}/10**")
-                    for obs in critica.get("observaciones", []):
-                        st.markdown(f"  - {obs}")
-
-                st.divider()
-                st.markdown("#### 💬 Respuesta Final")
-                st.success(result.get("respuesta_final", "Sin respuesta final"))
-                st.caption(f"🔁 Iteraciones: {result.get('iteracion', 0)}/{deep_max_iter}")
-
-            except Exception as e:
-                st.error(f"Error en Deep Agent: {e}")
-
-    # Diagrama
-    with st.expander("📐 Diagrama del Deep Agent"):
-        st.code("""
-    START → PLANIFICADOR → INVESTIGADOR → REDACTOR → CRÍTICO
-                                ↑                        │
-                                └── (si no aprobado) ─────┘
-                                       (loop, máx N iter)
-        """, language="text")
-
-
-# --------- TAB EVALUACIÓN ----------
-with tab_eval:
-    st.markdown("### 🧪 Plan de Evaluación — Golden Set")
-    st.caption(
-        "§5: Evaluación contra el golden set con métricas de exactitud, "
-        "groundedness, latencia y costo. LangSmith para observabilidad."
-    )
-
-    # Mostrar el golden set
-    with st.expander("📋 Ver Golden Set (10 casos)", expanded=False):
-        try:
-            from evaluation.golden_set import golden_set_as_dicts
-            gs_data = golden_set_as_dicts()
-            st.dataframe(gs_data, use_container_width=True, hide_index=True)
-        except Exception as e:
-            st.error(f"Error cargando golden set: {e}")
-
-    # Catálogo de prompts
-    with st.expander("📝 Catálogo de Prompts Versionado (§6)", expanded=False):
-        try:
-            from prompts.catalog import list_prompts
-            prompts_data = list_prompts()
-            st.dataframe(prompts_data, use_container_width=True, hide_index=True)
-        except Exception as e:
-            st.error(f"Error cargando prompts: {e}")
-
-    # Ejecutar evaluación
-    st.divider()
-    eval_col1, eval_col2 = st.columns(2)
-    with eval_col1:
-        eval_categoria = st.selectbox(
-            "Categoría", ["Todas", "validacion", "rag", "cotizacion", "e2e"],
-            key="eval_cat",
-        )
-    with eval_col2:
-        eval_verbose = st.checkbox("Modo verbose", value=False, key="eval_verbose")
-
-    if st.button("▶️ Ejecutar evaluación del Golden Set", key="eval_run"):
-        cat = None if eval_categoria == "Todas" else eval_categoria
-        with st.spinner("Ejecutando evaluación..."):
-            try:
-                from evaluation.run_eval import run_golden_set_evaluation
-                results = run_golden_set_evaluation(
-                    categoria=cat,
-                    verbose=eval_verbose,
-                )
-
-                # Métricas globales
-                st.markdown("#### 📊 Métricas Globales (§5.2)")
-                mc1, mc2, mc3, mc4 = st.columns(4)
-                mc1.metric("Casos evaluados", results["total_cases"])
-                mc2.metric("Aprobados", f"{results['aprobados']}/{results['total_cases']}")
-                mc3.metric("Exactitud avg", f"{results['avg_exactitud']:.1%}")
-                mc4.metric("Latencia avg", f"{results['avg_latencia_ms']:.0f} ms")
-
-                # Tabla de resultados
-                st.markdown("#### 📋 Resultados por caso")
-                eval_rows = []
-                for r in results["results"]:
-                    eval_rows.append({
-                        "ID": r["case_id"],
-                        "Aprobado": "[OK]" if r["aprobado"] else "[FAIL]",
-                        "Exactitud": f"{r['exactitud']:.2f}",
-                        "Groundedness": f"{r['groundedness']:.2f}",
-                        "Latencia (ms)": f"{r['latencia_ms']:.0f}",
-                    })
-                st.dataframe(eval_rows, use_container_width=True, hide_index=True)
-
-                # Decisión
-                if results["tasa_aprobacion"] >= 0.8:
-                    st.success("[OK] DECISIÓN: Sistema APROBADO — Cumple umbrales de calidad")
-                else:
-                    st.warning("[FAIL] DECISIÓN: ITERAR — No cumple umbrales mínimos")
-
-            except Exception as e:
-                st.error(f"Error en evaluación: {e}")
-
-    # LangSmith status
-    st.divider()
-    st.markdown("#### 🔗 LangSmith — Observabilidad (§5.3)")
-    try:
-        from evaluation.langsmith_config import check_langsmith_connection, LANGSMITH_PROJECT
-        ok, msg = check_langsmith_connection()
-        if ok:
-            st.success(f"[OK] {msg}")
-        else:
-            st.info(f"[INFO] {msg}")
-        st.caption(f"Proyecto: `{LANGSMITH_PROJECT}`")
-    except Exception as e:
-        st.info(f"LangSmith: {e}")
-
 
 # =============================================================================
 # FOOTER
@@ -692,4 +429,3 @@ st.markdown(
     "</p>",
     unsafe_allow_html=True,
 )
-
