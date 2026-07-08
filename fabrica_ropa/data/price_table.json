@@ -1,0 +1,24 @@
+{
+  "prendas": {
+    "polo": {"precio_unitario": 35.00, "alias": ["polos", "polera", "poleras", "t-shirt", "camiseta"]},
+    "camisa": {"precio_unitario": 55.00, "alias": ["camisas"]},
+    "pantalon": {"precio_unitario": 65.00, "alias": ["pantalones", "pantalón"]},
+    "casaca": {"precio_unitario": 95.00, "alias": ["casacas", "chompa", "chompas", "chaqueta"]},
+    "vestido": {"precio_unitario": 85.00, "alias": ["vestidos"]},
+    "uniforme": {"precio_unitario": 120.00, "alias": ["uniformes"]},
+    "short": {"precio_unitario": 30.00, "alias": ["shorts", "bermuda", "bermudas"]},
+    "falda": {"precio_unitario": 50.00, "alias": ["faldas"]}
+  },
+  "acabados": {
+    "ninguno": 0.00,
+    "estampado": 5.00,
+    "bordado": 10.00
+  },
+  "descuentos_volumen": [
+    {"minimo": 200, "porcentaje": 0.20, "label": "20% por 200+ unidades"},
+    {"minimo": 100, "porcentaje": 0.15, "label": "15% por 100+ unidades"},
+    {"minimo": 50,  "porcentaje": 0.10, "label": "10% por 50+ unidades"},
+    {"minimo": 0,   "porcentaje": 0.00, "label": "Sin descuento"}
+  ],
+  "porcentaje_adelanto": 0.50
+}

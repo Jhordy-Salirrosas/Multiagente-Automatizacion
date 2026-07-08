@@ -1,0 +1,164 @@
+CATÁLOGO DE PRODUCTOS Y CONDICIONES — FÁBRICA DE ROPA GRUPO 01
+================================================================
+
+1. PRENDAS DISPONIBLES
+----------------------
+
+1.1 Polo básico
+- Material: Algodón pima 20/1 o algodón jersey 24/1
+- Precio unitario: S/ 25.00
+- Colores disponibles: Blanco, Negro, Azul marino, Rojo, Gris, Verde
+- Tallas: XS, S, M, L, XL, XXL
+- Tiempo de confección: 7-10 días hábiles (pedidos hasta 100 unidades)
+- Ideal para: uniformes empresariales, eventos, promociones
+
+1.2 Polo deportivo
+- Material: Dry-fit (poliéster microfibra) o algodón deportivo
+- Precio unitario: S/ 30.00
+- Colores disponibles: Todos los colores estándar más combinaciones bicolor
+- Tallas: XS, S, M, L, XL, XXL
+- Tiempo de confección: 8-12 días hábiles
+- Ideal para: equipos deportivos, gimnasios, maratones
+
+1.3 Camisa
+- Material: Oxford, popelina o drill
+- Precio unitario: S/ 45.00
+- Colores disponibles: Blanco, Celeste, Azul, Gris, Beige
+- Tallas: S, M, L, XL, XXL
+- Tiempo de confección: 10-15 días hábiles
+- Ideal para: uniformes corporativos, personal de atención al público
+
+1.4 Pantalón
+- Material: Drill, gabardina o jean
+- Precio unitario: S/ 55.00
+- Colores disponibles: Negro, Azul, Gris, Beige, Caqui
+- Tallas: 28, 30, 32, 34, 36, 38
+- Tiempo de confección: 10-15 días hábiles
+
+1.5 Casaca
+- Material: Polar, softshell o nylon impermeable
+- Precio unitario: S/ 75.00
+- Colores disponibles: Negro, Azul marino, Rojo, Verde
+- Tallas: S, M, L, XL, XXL
+- Tiempo de confección: 12-18 días hábiles
+- Incluye: forro interior, bolsillos, cierre metálico
+
+1.6 Vestido
+- Material: Algodón, poliéster, chifón
+- Precio unitario: S/ 60.00
+- Colores disponibles: Según diseño del cliente
+- Tallas: XS, S, M, L, XL
+- Tiempo de confección: 12-15 días hábiles
+
+1.7 Uniforme escolar
+- Material: Drill o algodón grueso
+- Precio unitario: S/ 50.00
+- Colores disponibles: Según institución educativa
+- Tallas: 4, 6, 8, 10, 12, 14, S, M, L
+- Tiempo de confección: 15-20 días hábiles (pedidos escolares suelen ser masivos)
+
+1.8 Falda
+- Material: Drill, gabardina, algodón
+- Precio unitario: S/ 40.00
+- Colores disponibles: Negro, Azul, Gris, Plomo, Beige
+- Tallas: XS, S, M, L, XL
+- Tiempo de confección: 8-12 días hábiles
+
+1.9 Short
+- Material: Algodón, dry-fit, microfilamento
+- Precio unitario: S/ 35.00
+- Colores disponibles: Negro, Azul, Blanco, Gris
+- Tallas: S, M, L, XL, XXL
+- Tiempo de confección: 7-10 días hábiles
+
+2. ACABADOS DISPONIBLES
+-----------------------
+
+2.1 Sin acabado (ninguno)
+- Costo adicional: S/ 0.00
+- Descripción: Prenda lisa, sin personalización adicional
+
+2.2 Estampado
+- Costo adicional: S/ 8.00 por unidad
+- Técnicas: Serigrafía (hasta 4 colores), sublimación (full color), transfer
+- Tamaño máximo del estampado: 30x40 cm (pecho o espalda)
+- Requisitos: El cliente debe enviar el diseño en formato PNG o AI (300 dpi mínimo)
+- Nota: La sublimación solo funciona en prendas de poliéster blanco o claro
+
+2.3 Bordado
+- Costo adicional: S/ 12.00 por unidad
+- Ubicaciones: Pecho izquierdo (estándar), espalda, manga, cuello
+- Tamaño máximo: 10x10 cm por ubicación
+- Colores de hilo: amplia gama disponible
+- Requisitos: Diseño vectorizado (AI, EPS, SVG)
+- Nota: Ideal para logos corporativos, nombres y escudos institucionales
+
+3. DESCUENTOS POR VOLUMEN
+-------------------------
+
+- Pedido de 1 a 49 unidades: Sin descuento (precio estándar)
+- Pedido de 50 a 99 unidades: 10% de descuento sobre el subtotal
+- Pedido de 100 a 199 unidades: 15% de descuento sobre el subtotal
+- Pedido de 200 unidades a más: 20% de descuento sobre el subtotal
+
+Los descuentos son automáticos y se aplican sobre el subtotal total del pedido
+(precio unitario + acabado) × cantidad.
+
+4. CONDICIONES DE PAGO
+----------------------
+
+- Adelanto obligatorio: 50% del total al confirmar el pedido
+- Saldo restante: 50% contra entrega del pedido terminado
+- Métodos de pago: transferencia bancaria (BCP, Interbank, BBVA), Yape, Plin
+- Se emite boleta o factura según solicitud del cliente
+
+5. CONDICIONES DE ENTREGA
+-------------------------
+
+- Lugar de entrega: En nuestro taller (Av. España 1234, Trujillo) o envío por courier
+- Envío por courier: costo adicional según destino y peso
+- Plazo de entrega: varía según tipo de prenda y cantidad (ver sección 1)
+- Pedidos urgentes: se puede reducir el plazo con un recargo del 20%
+- Garantía: 30 días por defectos de confección
+
+6. PROCESO DE PEDIDO
+--------------------
+
+Paso 1: El cliente contacta y describe su necesidad (tipo de prenda, cantidad, etc.)
+Paso 2: Se valida que el pedido corresponda al rubro textil
+Paso 3: Se recolectan los 8 datos esenciales del pedido:
+        nombre, email, tipo_prenda, cantidad, talla, color, acabado, fecha_entrega
+Paso 4: Se genera la cotización con descuentos automáticos
+Paso 5: El cliente confirma o cancela
+Paso 6: Se registra el pedido en el sistema
+Paso 7: Se envía la constancia formal por email
+Paso 8: El cliente realiza el adelanto del 50%
+Paso 9: Se inicia la producción
+Paso 10: Entrega del pedido y pago del saldo
+
+7. PREGUNTAS FRECUENTES
+-----------------------
+
+P: ¿Puedo pedir diferentes tallas en un mismo pedido?
+R: Sí, indicar la distribución de tallas (ej. "25 S y 25 M").
+
+P: ¿Aceptan diseños personalizados?
+R: Sí, para estampado y bordado. Envíe su diseño en alta resolución.
+
+P: ¿Hacen entregas fuera de Trujillo?
+R: Sí, por courier con costo adicional según destino.
+
+P: ¿Cuál es el pedido mínimo?
+R: 1 unidad, aunque los mejores precios se obtienen a partir de 50 unidades.
+
+P: ¿Pueden hacer muestras antes del pedido completo?
+R: Sí, con un costo de S/ 50 por muestra (descontable del pedido final).
+
+8. CONTACTO
+-----------
+
+Empresa: Fábrica de Ropa - Grupo 01
+Email: ventas@fabricaropa.com
+Teléfono: +51 999 888 777
+Dirección: Av. España 1234, Trujillo - Perú
+Horario: Lunes a viernes 8:00 - 18:00, sábados 9:00 - 13:00
