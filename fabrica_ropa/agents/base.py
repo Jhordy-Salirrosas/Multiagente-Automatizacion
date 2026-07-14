@@ -1,4 +1,4 @@
-﻿"""
+"""
 BaseAgent — Wrapper estandarizado sobre el LLM usando LangChain LCEL.
 
 Usa ChatOpenAI (compatible con GitHub Models, OpenAI, cualquier endpoint
@@ -28,16 +28,23 @@ from config import EXECUTION_MODE, LLM_API_KEY, get_langchain_llm
 
 # LangSmith tracing (§5.3): decorador @traceable para observabilidad.
 # Si langsmith no está instalado, usamos un decorador no-op.
-try:
-    from langsmith import traceable  # type: ignore
-except ImportError:
-    def traceable(*args, **kwargs):
-        """No-op decorator cuando langsmith no está instalado."""
-        def decorator(func):
-            return func
-        if args and callable(args[0]):
-            return args[0]
+from typing import TYPE_CHECKING, Any, Callable, TypeVar, cast
+
+F = TypeVar('F', bound=Callable[..., Any])
+
+if TYPE_CHECKING:
+    def traceable(*args: Any, **kwargs: Any) -> Callable[[F], F]:
+        def decorator(func: F) -> F: return func
         return decorator
+else:
+    try:
+        from langsmith import traceable  # type: ignore
+    except ImportError:
+        def traceable(*args: Any, **kwargs: Any) -> Callable[[F], F]:
+            def decorator(func: F) -> F: return func
+            if args and callable(args[0]):
+                return cast(Callable[[F], F], lambda f: f)(args[0])
+            return decorator
 
 
 # Errores que justifican retry con backoff

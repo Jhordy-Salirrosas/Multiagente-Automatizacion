@@ -1,0 +1,56 @@
+{
+  "proveedores": [
+    {
+      "id": "PROV-001",
+      "nombre": "Textiles del Norte SAC",
+      "ruc": "20123456789",
+      "contacto": "ventas@textilesnorte.com",
+      "telefono": "+51 944 111 222",
+      "materiales": ["tela algodón", "tela poliéster", "tela drill", "tela jersey"],
+      "precio_promedio_metro": 12.50,
+      "tiempo_entrega_dias": 5,
+      "historial_cumplimiento": 0.95,
+      "ubicacion": "Trujillo",
+      "activo": true
+    },
+    {
+      "id": "PROV-002",
+      "nombre": "Hilos y Acabados Perú EIRL",
+      "ruc": "20987654321",
+      "contacto": "pedidos@hilosacabados.pe",
+      "telefono": "+51 955 333 444",
+      "materiales": ["hilo industrial", "hilo bordado", "botones", "cierres", "etiquetas"],
+      "precio_promedio_metro": 3.80,
+      "tiempo_entrega_dias": 3,
+      "historial_cumplimiento": 0.92,
+      "ubicacion": "Lima",
+      "activo": true
+    },
+    {
+      "id": "PROV-003",
+      "nombre": "Distribuidora Textil Sur SA",
+      "ruc": "20456789123",
+      "contacto": "compras@textilsur.com",
+      "telefono": "+51 966 555 666",
+      "materiales": ["tela algodón", "tela poliéster", "elástico", "entretela"],
+      "precio_promedio_metro": 14.00,
+      "tiempo_entrega_dias": 7,
+      "historial_cumplimiento": 0.88,
+      "ubicacion": "Arequipa",
+      "activo": true
+    },
+    {
+      "id": "PROV-004",
+      "nombre": "Insumos Textiles Express SRL",
+      "ruc": "20111222333",
+      "contacto": "express@insumostextiles.pe",
+      "telefono": "+51 977 777 888",
+      "materiales": ["tinta estampado", "papel transfer", "tela sublimación", "adhesivo textil"],
+      "precio_promedio_metro": 8.50,
+      "tiempo_entrega_dias": 4,
+      "historial_cumplimiento": 0.90,
+      "ubicacion": "Trujillo",
+      "activo": true
+    }
+  ]
+}

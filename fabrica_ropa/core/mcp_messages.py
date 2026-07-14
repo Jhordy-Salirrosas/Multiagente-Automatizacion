@@ -15,12 +15,20 @@ import uuid
 
 class AgentName(str, Enum):
     """Identificadores únicos de cada agente del sistema."""
+    # Proceso 1: Realizar Pedido
     ORCHESTRATOR = "OrchestratorAgent"
     VALIDATOR = "ValidatorAgent"
     DATA_COLLECTOR = "DataCollectorAgent"
     PRICING = "PricingAgent"
     REGISTRY = "RegistryAgent"
     NOTIFIER = "NotifierAgent"
+    # Proceso 2: Compra de Materiales
+    MATERIAL_PLANNER = "MaterialPlannerAgent"
+    BUDGET = "BudgetAgent"
+    APPROVAL = "ApprovalAgent"
+    SUPPLIER = "SupplierAgent"
+    PRODUCTION = "ProductionAgent"
+    # Roles
     USER = "User"
 
 
@@ -121,6 +129,7 @@ class QuoteResult(BaseModel):
     adelanto: float
     descuento_label: str
     resumen_texto: str
+    pdf_path: Optional[str] = None
 
 
 class RegistryResult(BaseModel):
@@ -129,6 +138,7 @@ class RegistryResult(BaseModel):
     timestamp_registro: datetime
     estado: Literal["Pendiente de pago", "Pagado", "En producción", "Entregado"]
     db_path: str
+    pdf_path: Optional[str] = None
 
 
 class NotificationResult(BaseModel):
@@ -138,6 +148,64 @@ class NotificationResult(BaseModel):
     archivo_html: str
     enviado: bool
     error: Optional[str] = None
+
+
+# ============================================================================
+# Schemas del DOMINIO — Proceso 2: Compra de Materiales (§3.7)
+# ============================================================================
+
+class MaterialPlan(BaseModel):
+    """Lista de materiales requeridos para producción con asignación inteligente."""
+    pedido_id: str
+    materiales: list[str]
+    cantidades: list[float]
+    en_stock: list[float] = Field(default_factory=list)
+    a_comprar: list[float] = Field(default_factory=list)
+    fecha_generacion: datetime = Field(default_factory=datetime.now)
+
+
+class BudgetResult(BaseModel):
+    """Presupuesto estimado para la compra de materiales."""
+    presupuesto_estimado: float
+    proveedor_recomendado: str
+    estado: Literal["Pendiente", "Aprobado", "Rechazado"] = "Pendiente"
+    justificacion: str = ""
+    razonamiento: str = ""
+
+
+class PurchaseResult(BaseModel):
+    """Resultado de la compra de materiales."""
+    proveedor: str
+    orden_compra_id: str
+    materiales_confirmados: bool = False
+    fecha_entrega: str = ""
+    monto_total: float = 0.0
+
+
+class PaymentResult(BaseModel):
+    """Resultado del procesamiento de pago."""
+    pedido_id: str
+    monto: float
+    metodo_pago: str
+    pago_confirmado: bool = False
+    comprobante_id: str = ""
+
+
+class PlanDeepAgent(BaseModel):
+    """Plan generado por el Deep Agent."""
+    objetivo: str
+    pasos: list[str] = Field(min_length=1, max_length=10)
+    sub_agentes: list[str]
+    complejidad: Literal["baja", "media", "alta"]
+
+
+class EvaluationMetric(BaseModel):
+    """Métricas utilizadas para evaluar el sistema."""
+    caso_id: str
+    exactitud: float
+    groundedness: float
+    latencia_ms: float
+    aprobado: bool
 
 
 # ============================================================================

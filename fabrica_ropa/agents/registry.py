@@ -65,11 +65,20 @@ class RegistryAgent(BaseAgent):
             estado="Pendiente de pago",
         )
 
+        pdf_path = None
+        try:
+            from tools.pdf_tool import PDFTool
+            pdf_tool = PDFTool()
+            pdf_path = pdf_tool.generate_receipt_pdf(pedido_id, quote, order.nombre)
+        except Exception as e:
+            pass
+
         result = RegistryResult(
             pedido_id=pedido_id,
             timestamp_registro=datetime.now(),
             estado="Pendiente de pago",
             db_path=str(self.sheets.db_path),
+            pdf_path=pdf_path,
         )
         state.registry_result = result
         self.emit_event("order_registered", pedido_id=pedido_id)

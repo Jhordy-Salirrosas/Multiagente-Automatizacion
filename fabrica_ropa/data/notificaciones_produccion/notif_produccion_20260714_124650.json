@@ -1,0 +1,13 @@
+{
+  "tipo": "materiales_recibidos",
+  "timestamp": "2026-07-14T12:46:50.579612",
+  "pedidos_asociados": [
+    "PLAN-SEMANAL"
+  ],
+  "materiales": [
+    "tela algodón"
+  ],
+  "orden_compra_id": "OC-20260714-F37F19",
+  "mensaje": "Los materiales de la orden OC-20260714-F37F19 han sido recibidos. Se puede iniciar la producción de los pedidos: PLAN-SEMANAL.",
+  "estado": "Notificado"
+}

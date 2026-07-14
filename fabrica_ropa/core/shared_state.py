@@ -14,7 +14,8 @@ from threading import Lock
 
 from core.mcp_messages import (
     MCPMessage, OrderData, ValidationResult,
-    QuoteResult, RegistryResult, NotificationResult
+    QuoteResult, RegistryResult, NotificationResult,
+    MaterialPlan, BudgetResult, PurchaseResult, PaymentResult
 )
 
 
@@ -23,6 +24,7 @@ class ConversationStage(str, Enum):
     Etapas del flujo de venta. El OrchestratorAgent decide qué agente
     invocar según la etapa actual.
     """
+    # Proceso 1: Realizar Pedido
     INITIAL = "initial"
     VALIDATING = "validating"
     COLLECTING_DATA = "collecting_data"
@@ -32,6 +34,14 @@ class ConversationStage(str, Enum):
     NOTIFYING = "notifying"
     COMPLETE = "complete"
     REJECTED = "rejected"
+    # Proceso 2: Compra de Materiales
+    PLANNING_MATERIALS = "planning_materials"
+    ESTIMATING_BUDGET = "estimating_budget"
+    WAITING_BUDGET_APPROVAL = "waiting_budget_approval"
+    PURCHASING = "purchasing"
+    WAITING_RECEPTION = "waiting_reception"
+    NOTIFYING_PRODUCTION = "notifying_production"
+    PURCHASE_COMPLETE = "purchase_complete"
 
 
 @dataclass
@@ -54,18 +64,60 @@ class SharedState:
     # Historial conversacional usuario ↔ sistema (para memoria del LLM)
     conversation_history: list[dict[str, str]] = field(default_factory=list)
 
-    # Resultados de cada agente
+    # Resultados de cada agente — Proceso 1
     validation_result: Optional[ValidationResult] = None
     order_data: OrderData = field(default_factory=OrderData)
     quote_result: Optional[QuoteResult] = None
     registry_result: Optional[RegistryResult] = None
     notification_result: Optional[NotificationResult] = None
 
+    # Resultados de cada agente — Proceso 2: Compra de Materiales
+    material_plan: Optional[MaterialPlan] = None
+    budget_result: Optional[BudgetResult] = None
+    purchase_result: Optional[PurchaseResult] = None
+    payment_result: Optional[PaymentResult] = None
+
+    # Estado de inventario simulado (Almacén Inteligente)
+    inventory: dict[str, float] = field(default_factory=lambda: {
+        "tela algodón": 200.0,
+        "hilo industrial": 10.0,
+        "etiquetas": 500.0,
+        "botones": 500.0,
+        "tinta estampado": 5.0,
+        "hilo bordado": 5.0
+    })
+
+    # Políticas de Inventario (Safety Stock y Max Capacity)
+    safety_stock: dict[str, float] = field(default_factory=lambda: {
+        "tela algodón": 100.0,
+        "hilo industrial": 5.0,
+        "etiquetas": 200.0,
+        "botones": 200.0,
+        "tinta estampado": 2.0,
+        "hilo bordado": 2.0
+    })
+
+    max_capacity: dict[str, float] = field(default_factory=lambda: {
+        "tela algodón": 1000.0,
+        "hilo industrial": 50.0,
+        "etiquetas": 2000.0,
+        "botones": 2000.0,
+        "tinta estampado": 20.0,
+        "hilo bordado": 20.0
+    })
+
     # Lock para concurrencia
     _lock: Lock = field(default_factory=Lock, repr=False)
 
     # Para detección de conflictos: timestamp de última actualización por campo
     _field_updates: dict[str, datetime] = field(default_factory=dict, repr=False)
+
+    def deduct_inventory(self, items: dict[str, float]) -> None:
+        """Descuenta los materiales del inventario de forma segura."""
+        with self._lock:
+            for material, amount in items.items():
+                if material in self.inventory:
+                    self.inventory[material] = max(0.0, self.inventory[material] - amount)
 
     # ---------- Mensajes MCP ----------
     def append_message(self, message: MCPMessage) -> None:
@@ -134,5 +186,9 @@ class SharedState:
             "quote_result": self.quote_result.model_dump() if self.quote_result else None,
             "registry_result": self.registry_result.model_dump(mode="json") if self.registry_result else None,
             "notification_result": self.notification_result.model_dump() if self.notification_result else None,
+            "material_plan": self.material_plan.model_dump(mode="json") if self.material_plan else None,
+            "budget_result": self.budget_result.model_dump() if self.budget_result else None,
+            "purchase_result": self.purchase_result.model_dump() if self.purchase_result else None,
+            "payment_result": self.payment_result.model_dump() if self.payment_result else None,
             "messages_count": len(self.message_history),
         }

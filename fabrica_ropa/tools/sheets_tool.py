@@ -21,8 +21,8 @@ except ImportError:
 
 class SheetsTool:
     """
-    Tool de persistencia. Crea/actualiza una tabla 'pedidos' con todas las
-    columnas del pedido. El RegistryAgent usa esta tool.
+    Tool de persistencia. Crea/actualiza tablas con todas las
+    columnas del pedido y del proceso de compra. El RegistryAgent usa esta tool.
     """
 
     SCHEMA = """
@@ -47,6 +47,33 @@ class SheetsTool:
     );
     """
 
+    SCHEMA_PRESUPUESTOS = """
+    CREATE TABLE IF NOT EXISTS presupuestos (
+        presupuesto_id      TEXT PRIMARY KEY,
+        fecha               TEXT NOT NULL,
+        presupuesto_estimado REAL NOT NULL,
+        proveedor_recomendado TEXT NOT NULL,
+        justificacion       TEXT,
+        estado              TEXT NOT NULL,
+        materiales_json     TEXT,
+        pedidos_asociados   TEXT
+    );
+    """
+
+    SCHEMA_COMPRAS = """
+    CREATE TABLE IF NOT EXISTS compras_materiales (
+        orden_id            TEXT PRIMARY KEY,
+        proveedor_id        TEXT NOT NULL,
+        proveedor_nombre    TEXT NOT NULL,
+        materiales          TEXT NOT NULL,
+        monto_total         REAL NOT NULL,
+        fecha_orden         TEXT NOT NULL,
+        fecha_entrega_est   TEXT NOT NULL,
+        estado              TEXT NOT NULL,
+        pedidos_asociados   TEXT
+    );
+    """
+
     def __init__(self, db_path: str | None = None):
         self.db_path = Path(db_path or DB_PATH)
         self.db_path.parent.mkdir(parents=True, exist_ok=True)
@@ -55,6 +82,8 @@ class SheetsTool:
     def _ensure_schema(self) -> None:
         with sqlite3.connect(self.db_path) as conn:
             conn.execute(self.SCHEMA)
+            conn.execute(self.SCHEMA_PRESUPUESTOS)
+            conn.execute(self.SCHEMA_COMPRAS)
             conn.commit()
 
     def append_row(
@@ -103,6 +132,31 @@ class SheetsTool:
     def count_pedidos(self) -> int:
         with sqlite3.connect(self.db_path) as conn:
             return conn.execute("SELECT COUNT(*) FROM pedidos").fetchone()[0]
+
+    # ── Proceso 2: Helpers de consulta ──
+
+    def get_pedidos_by_estado(self, estado: str) -> list[dict]:
+        """Obtiene pedidos por estado (para MaterialPlannerAgent)."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute(
+                "SELECT * FROM pedidos WHERE estado = ?", (estado,)
+            ).fetchall()
+            return [dict(r) for r in rows]
+
+    def get_compras(self) -> list[dict]:
+        """Lista todas las compras de materiales."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("SELECT * FROM compras_materiales").fetchall()
+            return [dict(r) for r in rows]
+
+    def get_presupuestos(self) -> list[dict]:
+        """Lista todos los presupuestos."""
+        with sqlite3.connect(self.db_path) as conn:
+            conn.row_factory = sqlite3.Row
+            rows = conn.execute("SELECT * FROM presupuestos").fetchall()
+            return [dict(r) for r in rows]
 
 
 # =============================================================================

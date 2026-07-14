@@ -5,7 +5,6 @@
   "reportAssignmentType": "none",
   "reportUndefinedVariable": "none",
   "ignore": [
-    "tests/**/*",
     "rag/**/*",
     "langgraph_flow/**/*",
     "deep_agent/**/*"

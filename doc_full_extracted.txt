@@ -1,0 +1,1143 @@
+DOCUMENTO DE DISEÑO
+Proyecto de implementación con LangChain
+Análisis · Diseño · Documentación
+
+[TABLA]
+Nombre del proyecto | Fabrica de Ropa
+Cliente / Área | Empresas de venta de ropa
+Autor(es) | ●       Caipo Trujillo Sonia  ●       Díaz Uceda, Carlos ●       Salirrosas Vasquez Jhordy ●       Sanchez Vargas Daniela
+Versión del documento | 1.0
+Fecha | Julio - 2026
+Estado | Borrador / En revisión / Aprobado
+Institución | Universidad Privada Antenor Orrego (UPAO)
+[FIN TABLA]
+
+### [Heading 1] Control de versiones
+Guía:  Registra cada cambio relevante del documento. Mantener este historial es lo que permite trazar decisiones a lo largo del proyecto.
+
+[TABLA]
+Versión | Fecha | Autor | Descripción del cambio
+1.0 | 13/04/2026 | grupo1 | Mapeo de Procesos AS-IS y ToBE.docx.
+2.0 | 19/04/2026 | grupo1 | Mapeo de Procesos AS-IS y ToBE_v2.docx
+3.0 | 22/04/2026 | grupo1 | Automatización con RPA y Multiagentes en N8N.docx
+[FIN TABLA]
+
+### [Heading 1] Tabla de contenidos
+
+### [Heading 1] 1. Resumen ejecutivo
+El presente proyecto tiene como finalidad automatizar y optimizar los procesos de realización de pedidos y compra de materiales de una empresa dedicada a la confección de uniformes, mediante la implementación de una solución basada en LangChain y tecnologías de Inteligencia Artificial. Actualmente, estos procesos presentan múltiples actividades manuales, como la elaboración y envío de cotizaciones, el registro de pedidos, la coordinación con proveedores y el seguimiento de compras, lo que incrementa los tiempos de atención, la posibilidad de errores y la carga operativa del personal.
+La propuesta consiste en desarrollar un sistema inteligente capaz de automatizar la validación de pedidos, generar cotizaciones de forma inmediata, gestionar pagos en línea, almacenar automáticamente la información en una base de datos y asistir en la planificación semanal de compras de materiales mediante estimaciones basadas en información histórica. Para ello, se utilizará una arquitectura basada en LangChain y LangGraph, que permitirá coordinar tanto tareas determinísticas como procesos que requieren razonamiento mediante un Modelo de Lenguaje (LLM), integrando además herramientas externas como servicios de correo electrónico, plataformas de pago y bases de datos.
+Como resultado, se espera reducir significativamente los tiempos de atención al cliente, disminuir los errores derivados de procesos manuales, optimizar la planificación de compras y mejorar la eficiencia operativa de la empresa. Asimismo, el sistema proporcionará una mayor trazabilidad de la información, facilitará la toma de decisiones y ofrecerá una experiencia más ágil tanto para los clientes como para el personal encargado de la gestión de pedidos y abastecimiento.
+
+### [Heading 2] 1.1 Problema
+Actualmente, la empresa realiza gran parte de sus procesos de atención al cliente y abastecimiento de materiales de forma manual. Cuando un cliente solicita un pedido, un trabajador debe elaborar una cotización estimada, registrar los datos del cliente y enviar posteriormente la cotización formal por correo electrónico. Si el cliente acepta la propuesta, el personal registra el pago inicial, entrega la documentación correspondiente y coordina manualmente el inicio de la producción.
+De manera similar, el proceso de compra de materiales se ejecuta semanalmente mediante la revisión manual de los nuevos pedidos, la elaboración de listas de materiales, la estimación del presupuesto y la comunicación con diversos proveedores para concretar las compras. Estas actividades demandan tiempo, dependen de la intervención constante del personal y aumentan el riesgo de errores, retrasos, pérdida de información y dificultades para dar seguimiento al estado de los pedidos.
+Como consecuencia, la empresa experimenta tiempos de respuesta elevados, menor eficiencia operativa y una limitada capacidad para atender un mayor volumen de pedidos sin incrementar la carga de trabajo del personal.
+
+### [Heading 2] 1.2 Solución propuesta
+Se propone implementar un sistema inteligente basado en LangChain que automatice los procesos de realización de pedidos y compra de materiales, integrando un Modelo de Lenguaje (LLM) con herramientas externas que permitan ejecutar acciones sobre distintos servicios.
+En el proceso de pedidos, el sistema permitirá que los clientes realicen sus solicitudes desde un sitio web, valide automáticamente la viabilidad del pedido, genere la cotización en tiempo real, la envíe por correo electrónico, registre la información en una base de datos, procese pagos en línea y genere comprobantes digitales de manera automática.
+En el proceso de compra de materiales, el sistema identificará semanalmente los pedidos aprobados, consolidará las listas de materiales requeridas, estimará el presupuesto utilizando el historial de compras, solicitará la aprobación correspondiente y apoyará la comunicación con los proveedores para concretar las adquisiciones. Todo el flujo será orquestado mediante LangGraph, permitiendo controlar decisiones, estados del proceso y participación humana cuando sea necesaria.
+
+### [Heading 2] 1.3 Resultado esperado
+Con la implementación del sistema se espera lograr una automatización integral de los procesos de gestión de pedidos y abastecimiento de materiales, reduciendo significativamente los tiempos de atención y las actividades manuales realizadas por el personal.
+Los principales resultados esperados son:
+Reducir el tiempo de generación y envío de cotizaciones de varias horas a pocos segundos.
+Automatizar el registro de pedidos, pagos y comprobantes digitales en la base de datos.
+Disminuir los errores asociados al registro manual de información.
+Optimizar la planificación semanal de compra de materiales mediante estimaciones basadas en datos históricos.
+Mejorar la comunicación con proveedores para agilizar el abastecimiento.
+Incrementar la trazabilidad y el control de los procesos mediante registros digitales.
+Mejorar la experiencia del cliente al ofrecer una atención más rápida, precisa y disponible a través de la plataforma web.
+El éxito del proyecto se medirá mediante indicadores como la reducción del tiempo promedio de atención, el porcentaje de procesos automatizados, la disminución de errores administrativos y el incremento en la eficiencia del proceso de compra de materiales.
+
+### [Heading 1] 2. Análisis
+El análisis responde qué se construye y por qué, antes de decidir cómo. En sistemas con un LLM en el núcleo, la diferencia clave frente al software tradicional es el comportamiento no determinista. Por ello, este proyecto delega estratégicamente la toma de decisiones críticas a componentes determinísticos (orquestador y herramientas matemáticas) y utiliza el LLM solo donde es necesario.
+
+### [Heading 2] 2.1 Justificación: ¿se necesita un LLM?
+El uso del LLM se justifica porque existen actividades donde el sistema debe interpretar lenguaje natural, generar textos personalizados y analizar información histórica para apoyar decisiones del negocio. En cambio, las tareas repetitivas, cálculos, validaciones y registros serán implementadas mediante lógica tradicional, lo que reduce costos y mejora la confiabilidad del sistema.
+
+[TABLA]
+Capacidad / paso del proceso | ¿Requiere LLM? | Alternativa determinista
+Interpretar solicitudes del cliente desde la página web | Si | Formularios estructurados
+Validar que el pedido cumpla las reglas del negocio | No | Reglas de negocio y validaciones del sistema
+Generar automáticamente la cotización | No | Fórmulas de cálculo y reglas de precios
+Redactar el correo de envío de cotización de forma personalizada | si | Plantillas estáticas de correo
+Procesar el pago en línea | No | API de pasarela de pagos
+Generar comprobante digital | No | Sistema de facturación electrónica
+Analizar el historial de compras para apoyar la estimación del presupuesto | Sí | Promedios estadísticos simples
+Recomendar proveedores alternativos cuando exista algún inconveniente | Sí | Lista fija de proveedores
+Notificar automáticamente al cliente sobre el estado del pedido | No | Servicio automático de correo
+Responder consultas del personal sobre pedidos, materiales o producción | Sí | Búsquedas manuales en la base de datos
+[FIN TABLA]
+
+### [Heading 2] 2.2 Objetivos y alcance
+
+### [Heading 3] Objetivo general
+Diseñar e implementar un sistema inteligente basado en LangChain que automatice los procesos de realización de pedidos y compra de materiales de una empresa de confección de uniformes, reduciendo los tiempos de atención, optimizando la gestión operativa y mejorando la eficiencia del proceso mediante el uso de Inteligencia Artificial.
+
+### [Heading 3] Objetivos específicos
+Automatizar el registro de pedidos, generación de cotizaciones, procesamiento de pagos y emisión de comprobantes digitales mediante una plataforma web integrada.
+Implementar un agente inteligente que apoye la planificación semanal de compras de materiales utilizando información histórica, herramientas externas y capacidades de razonamiento mediante un LLM.
+Integrar servicios externos para el envío automático de correos electrónicos, almacenamiento de información y comunicación con proveedores.
+Diseñar una arquitectura basada en LangChain y LangGraph que permita coordinar procesos automáticos, decisiones inteligentes y participación humana cuando sea necesario.
+Mejorar la trazabilidad de la información mediante el almacenamiento centralizado de pedidos, cotizaciones, pagos y compras.
+
+### [Heading 3] Dentro del alcance
+El sistema será capaz de:
+Automatizar el registro de pedidos desde la página web.
+Validar automáticamente la viabilidad de cada pedido.
+Generar cotizaciones digitales.
+Enviar cotizaciones mediante correo electrónico.
+Registrar automáticamente la información en la base de datos.
+Procesar pagos en línea.
+Generar comprobantes digitales.
+Consolidar semanalmente los materiales requeridos.
+Estimar presupuestos utilizando información histórica.
+Apoyar la selección de proveedores.
+Notificar la llegada de materiales al área de producción.
+Mantener trazabilidad completa del proceso.
+
+### [Heading 3] Fuera del alcance
+El sistema no contempla:
+Diseño gráfico de prendas.
+Fabricación automática de uniformes.
+Gestión de inventarios en tiempo real.
+Control de calidad durante la producción.
+Gestión contable completa de la empresa.
+Administración de recursos humanos.
+Integración con sistemas ERP externos.
+Predicción avanzada de ventas mediante modelos de Machine Learning.
+
+### [Heading 2] 2.3 Requisitos funcionales
+Guía:  Qué debe hacer el sistema, en términos observables. Usa identificadores (RF-01, RF-02…) para poder referenciarlos en el diseño y en la evaluación.
+
+[TABLA]
+ID | Requisito funcional | Prioridad
+RF-01 | El sistema permitirá al cliente registrar un pedido mediante la plataforma web. | Alta
+RF-02 | El sistema validará automáticamente si el pedido cumple con las reglas establecidas por la empresa antes de ser registrado. | Alta
+RF-03 | El sistema generará automáticamente la cotización del pedido utilizando la información proporcionada por el cliente. | Alta
+RF-04 | El sistema enviará la cotización al correo electrónico del cliente de forma automática. . | Alta
+RF-05 | El sistema almacenará la información del pedido y la cotización en la base de datos. | Alta
+RF-06 | El sistema permitirá al cliente realizar el pago del adelanto mediante una pasarela de pago en línea. | Alta
+RF-07 | El sistema identificará semanalmente los pedidos aprobados para generar la lista de materiales requeridos. | Alta
+RF-08 | El sistema estimará automáticamente el presupuesto de compra de materiales utilizando el historial de compras registrado. | Media
+RF-09 | El sistema permitirá al responsable aprobar o rechazar el presupuesto estimado antes de realizar la compra de materiales. | Alta
+RF-10 | El sistema gestionará la comunicación con los proveedores para solicitar la compra de materiales y, en caso de no obtener respuesta, contactará automáticamente a un proveedor alternativo. | Media
+RF-11 | El sistema notificará al área de producción cuando se confirme la recepción de los materiales adquiridos. | Alta
+RF-12 | El sistema registrará todas las operaciones realizadas durante los procesos de pedidos y compra de materiales para mantener la trazabilidad de la información. | Media
+[FIN TABLA]
+
+### [Heading 2] 2.4 Requisitos no funcionales (propios de IA)
+Guía:  Estos atributos son restricciones de diseño de primera clase en proyectos LLM. Define un objetivo y, sobre todo, cómo lo medirás.
+
+[TABLA]
+Atributo | Objetivo | Cómo se medirá
+Latencia | p95 < 3 s para la generación de cotizaciones, recomendaciones y consultas del agente inteligente. | Trazas de tiempo extremo a extremo registradas mediante LangSmith, midiendo el tiempo de respuesta de cada ejecución del flujo en LangGraph.
+Costo | < US$ 0.01 por consulta al LLM | Se calculará mediante el consumo de tokens reportado por el proveedor del modelo (Gemini/OpenAI) y las métricas registradas en LangSmith.
+Precisión mínima |  | Se evaluará automáticamente utilizando el conjunto de casos de prueba definido en la sección 5, comparando las respuestas del sistema con las respuestas esperadas.
+Tolerancia a alucinación | Baja. El sistema sólo responderá utilizando información proveniente de la base de datos y del contexto recuperado mediante RAG. | Se medirá mediante la métrica de Groundedness, verificando que las respuestas estén respaldadas por el contexto recuperado y no por información inventada.
+Privacidad de datos | No enviar información personal identificable (PII) a modelos externos. | Se verificará mediante el enmascaramiento de datos sensibles antes de realizar consultas al LLM y revisando los datos enviados en cada solicitud.
+[FIN TABLA]
+
+### [Heading 2] 2.5 Inventario de conocimiento y acciones
+
+### [Heading 3] Fuentes de conocimiento (para RAG)
+Estas fuentes constituyen la base de conocimiento que utilizará el sistema mediante RAG, permitiendo que el LLM consulte información actualizada antes de generar recomendaciones o responder consultas relacionadas con pedidos, materiales y proveedores. De esta manera, se minimiza la generación de respuestas incorrectas y se mejora la precisión del sistema.
+
+[TABLA]
+Fuente | Formato | Volumen | Actualización
+Historial de pedidos | Base de datos PostgreSQL | Alto (miles de registros) | Diaria
+Historial de compras de materiales | Base de datos PostgreSQL | Alto | Semanal
+Catálogo de materiales | Base de datos | Medio | Cuando se incorporen nuevos materiales o cambien los existentes
+Lista de proveedores | Base de datos | Bajo | Mensual
+Tarifario de confección | Base de datos / Excel | Medio | Cuando cambien los precios
+Reglas de negocio para validación de pedidos | PDF / DOCX | Bajo | Eventual
+Plantillas de cotización y comprobantes | PDF / DOCX | Bajo | Eventual
+Políticas de compra y abastecimiento | PDF | Bajo | Anual
+[FIN TABLA]
+
+### [Heading 3] Acciones externas (futuras tools)
+Guía:  Operaciones que el modelo necesitará invocar: consultas a APIs, cálculos, escritura en sistemas. Cada una se especifica formalmente en §3.4.
+registrar_pedido_tool.py: Registra automáticamente los pedidos, valida la información del cliente y almacena la cotización en la base de datos.
+enviar_correo_tool.py: Envía cotizaciones, comprobantes y notificaciones del estado del pedido al correo electrónico del cliente.
+procesar_pago_tool.py: Valida los pagos realizados mediante la pasarela de pago y actualiza el estado del pedido.
+estimar_presupuesto_tool.py: Calcula el presupuesto semanal de compra de materiales utilizando el historial de compras.
+comprar_materiales_tool.py: Gestiona la comunicación con proveedores para realizar la compra de materiales y contactar proveedores alternativos cuando sea necesario.
+
+### [Heading 2] 2.6 Criterios de éxito y conjunto de evaluación (golden set)
+Guía:  El entregable más importante del análisis. Sin un conjunto de casos con respuestas esperadas no hay forma de saber si el sistema funciona ni de detectar regresiones al cambiar un prompt. Define aquí cómo se construirá; los casos se listan en §5.1.
+Tamaño objetivo del Golden Set y obtención de los casos:
+El sistema será evaluado mediante un Golden Set de 100 casos de prueba, conformado por casos reales y sintéticos relacionados con los procesos de realización de pedidos y compra de materiales. Los casos incluirán escenarios como la validación de pedidos, generación de cotizaciones, procesamiento de pagos, estimación del presupuesto de materiales y comunicación con proveedores. Los casos sintéticos permitirán evaluar situaciones excepcionales o poco frecuentes del proceso.
+Quién valida las respuestas esperadas:
+Las respuestas esperadas serán definidas por los integrantes del proyecto con base en las reglas de negocio de la empresa y serán revisadas por el docente del curso para verificar que el comportamiento del sistema sea consistente con los procesos modelados.
+Umbral global de aprobación:
+El sistema será considerado satisfactorio cuando cumpla los siguientes criterios:
+Obtener una precisión mínima del 90 % en el Golden Set.
+Alcanzar una fidelidad al contexto (Groundedness) igual o superior al 95 %.
+Mantener un tiempo de respuesta inferior a 3 segundos en las consultas realizadas al agente inteligente.
+Ejecutar correctamente al menos el 95 % de los procesos automatizados relacionados con la gestión de pedidos y la compra de materiales.
+
+### [Heading 2] 2.7 Análisis de riesgos
+Guía:  Incluye riesgos propios de IA: inyección de prompts, fuga de información sensible que entra al prompt, sesgo, y dependencia del proveedor del modelo.
+
+[TABLA]
+Riesgo | Probab. | Impacto | Mitigación
+Inyección de prompts mediante entradas maliciosas del usuario. | Media | Alto | Validación de entradas, sanitización de datos y uso de guardrails para restringir instrucciones no autorizadas.
+Alucinación en la generación de respuestas o recomendaciones del LLM. | Media | Alto | Implementación de RAG para recuperar información desde la base de datos y documentos autorizados, limitando las respuestas al contexto disponible.
+Fuga de información sensible (datos personales del cliente) enviada al LLM. | Baja | Alto | Enmascaramiento de datos (PII), envío únicamente de la información necesaria y uso de conexiones seguras.
+Sesgo en las recomendaciones del modelo para la estimación de presupuestos o selección de proveedores. | Baja | Medio | Validación humana de las recomendaciones críticas y revisión periódica de los resultados generados por el modelo.
+Dependencia del proveedor del modelo LLM o indisponibilidad del servicio. | Media | Alto | Configurar un modelo alternativo (fallback), reintentos automáticos y mecanismos de recuperación ante fallos.
+Información desactualizada en la base de conocimiento utilizada por el subsistema RAG. | Media | Medio | Actualizar periódicamente la base documental, versionar las fuentes de conocimiento y validar la vigencia de la información antes de indexarla.
+[FIN TABLA]
+
+### [Heading 1] 3. Diseño
+El diseño define la arquitectura técnica del sistema de automatización inteligente basado en LangChain y LangGraph, especificando cómo interactúan los componentes encargados de automatizar los procesos de realización de pedidos y compra de materiales. La solución combina componentes deterministas con capacidades de razonamiento proporcionadas por un Modelo de Lenguaje (LLM), incorpora un subsistema de Recuperación Aumentada por Generación (RAG) para consultar información del negocio y utiliza herramientas externas (Tools) para ejecutar acciones sobre sistemas externos. La coordinación de todos los componentes se realiza mediante LangGraph, que administra el estado del proceso, las decisiones condicionales y los puntos de intervención humana.
+
+### [Heading 2] 3.1 Arquitectura general
+El sistema estará compuesto por los siguientes elementos:
+Prompt:Define las instrucciones y el contexto que recibe el Modelo de Lenguaje para interpretar las solicitudes del usuario, generar respuestas coherentes y apoyar actividades que requieren razonamiento, como la interpretación de pedidos o la elaboración de respuestas personalizadas.
+LLM: Modelo de Lenguaje encargado de comprender consultas en lenguaje natural, extraer información relevante, generar respuestas y asistir en tareas que requieren interpretación o razonamiento, sin intervenir en cálculos o validaciones deterministas.
+Retriever (RAG): Recupera información relevante desde la base documental y las fuentes de conocimiento (historial de pedidos, compras, materiales, proveedores y políticas del negocio) antes de generar una respuesta, reduciendo el riesgo de alucinaciones y mejorando la precisión del sistema.
+Tools: Permiten ejecutar acciones externas que no realiza el Modelo de Lenguaje, como registrar pedidos, enviar cotizaciones por correo electrónico, procesar pagos, estimar presupuestos mediante reglas deterministas, consultar bases de datos y notificar al área de producción.
+Output Parser:Transforma y valida las respuestas generadas por el Modelo de Lenguaje para convertirlas en estructuras de datos (JSON u objetos) que puedan ser utilizadas por el resto del sistema.
+LangGraph: Actúa como el orquestador principal del sistema. Coordina la ejecución de los agentes especializados, mantiene el estado compartido del proceso, administra las decisiones condicionales, controla los ciclos de ejecución y permite incorporar puntos de intervención humana cuando sea necesario.
+
+### [Heading 3] Patrón de orquestación elegido
+
+[TABLA]
+Opción | ¿Cuándo aplica? — marca la elegida y justifica
+Chain lineal (LCEL) | No aplica. El flujo de la empresa no es completamente secuencial, ya que existen decisiones, validaciones y diferentes caminos según el estado del pedido.
+Agente con herramientas | No aplica. Aunque el sistema utiliza herramientas externas, el proceso requiere mantener estados, aprobaciones y coordinación entre múltiples etapas.
+LangGraph (grafo con estado) | Seleccionado. Se elige porque los procesos de Realizar Pedido y Comprar Materiales presentan ramas de decisión, ciclos, estados persistentes y puntos de aprobación humana, características que requieren una orquestación basada en grafos
+Deep Agent | Complementario. Se utilizará para las tareas que requieren planificación y coordinación entre múltiples agentes especializados, como la gestión del proceso de compra de materiales. El Deep Agent descompone el objetivo en subtareas (estimación de presupuesto, selección de proveedores, aprobación y notificación), delegándolas a los agentes correspondientes y utilizando la memoria del flujo administrada por LangGraph.
+[FIN TABLA]
+
+### [Heading 3] Esquema de la composición
+
+[IMAGEN EMBEBIDA — normal]
+Cliente (Web)
+│
+▼
+LangGraph (Orquestador)
+│
+┌──────────────────────┴──────────────────────┐
+│                                             │
+▼                                             ▼
+Proceso: Realizar Pedido                  Proceso: Compra de Materiales
+│
+▼
+Prompt Template
+│
+▼
+LLM (Gemini 2.5 Flash)
+│
+┌───────────┼────────────┐
+│           │            │
+▼           ▼            ▼
+Retriever      Tools      Output Parser
+(RAG)          │              │
+│           │              ▼
+│           ├── Registrar pedido
+│           ├── Generar cotización
+│           ├── Enviar correo
+│           ├── Procesar pago
+│           ├── Registrar comprobante
+│           └── Actualizar Base de Datos
+│
+└──── Consulta:
+• Historial de pedidos
+• Catálogo de materiales
+• Tarifario
+• Reglas de negocio
+
+### [Heading 2] 3.2 Diagrama de proceso (BPMN)
+Guía:  Modela el proceso as-is y to-be en BPMN 2.0. El diagrama delimita qué pasos automatiza el LLM, cuáles permanecen deterministas y dónde hay intervención humana. Inserta la imagen exportada del modelo.
+El Proceso de Realizar pedido
+El cliente inicia el proceso vía web, donde el sistema valida automáticamente la viabilidad del pedido y registra los datos. El sistema genera y envía la cotización por email de forma instantánea, guardando la cotización en la base de datos y permitiendo que el cliente realice el pago online para recibir su comprobante digital, el comprobante también se guarda en la base de datos y acepta el pedido automáticamente.
+As-Is:
+
+[IMAGEN EMBEBIDA — normal]
+Link: https://drive.google.com/file/d/1DFC0MFVv-tGio-u8-kFRKqWvoonLuVFm/view?usp=sharing
+To-be:
+
+[IMAGEN EMBEBIDA — normal]
+Link: https://drive.google.com/file/d/1w519liosvmIYQpCQ8GTbBB8R8ei2sqTl/view?usp=sharing
+El Proceso de Compra de Materiales
+Este proceso se realiza una vez cada semana, primero el sistema revisa todos los nuevos pedidos que tengan sus listas de detalles completadas, de los cuales generará una lista de materiales requeridos para el proceso, luego se realizará una estimación del presupuesto basada en el historial de compras anteriores. Una vez preparado el presupuesto estimado, debe ser aprobado por un trabajador designado al presupuesto, sólo entonces el sistema realizará la compra de materiales, caso contrario, deberá generar una nueva estimación del presupuesto. La compra de materiales se realizara comunicándose vía mensaje con un asesor de cada empresa proveedora, de no poder comunicarse con alguno, se comunicará con algún proveedor alternativo, una vez realizada la compra, y confirmada la recepción por parte de un trabajador, se le notifica a producción la llegada de los materiales.
+As-Is:
+
+[IMAGEN EMBEBIDA — normal]
+Link: https://drive.google.com/file/d/1o_KsGIErviG6kNjB3EDBIr3IEesw9wF0/view?usp=sharing
+To-Be:
+
+[IMAGEN EMBEBIDA — normal]
+Link: https://drive.google.com/file/d/1HavkyToqXwPeMwVmO0T4jtyu3POgqxu1/view?usp=sharing
+
+### [Heading 2] 3.3 Subsistema RAG
+Guía:  Completa solo si el proyecto usa recuperación. Cada parámetro afecta directamente la calidad y el costo: el tamaño de chunk influye en la precisión, el modelo de embeddings en el costo, y el método de recuperación en la relevancia.
+
+[TABLA]
+Parámetro | Valor | Justificación
+Estrategia de chunking | RecursiveCharacterTextSplitter, 800 tokens | Divide los documentos conservando el contexto y facilita una recuperación más precisa de la información.
+Solapamiento (overlap) | 100 tokens | Evita que información importante quede separada entre fragmentos consecutivos, mejorando la continuidad del contexto.
+Modelo de embeddings | text-embedding-004 (Google Gemini) | Ofrece un buen equilibrio entre precisión semántica, rendimiento y costo para búsquedas vectoriales.
+Vector Store | pgvector sobre PostgreSQL | Permite almacenar embeddings en la misma base de datos utilizada por el sistema, simplificando la arquitectura y mejorando la integración.
+Método de recuperación | Búsqueda híbrida (vectorial + filtros por metadatos) | Combina similitud semántica con filtros sobre documentos (categoría, proveedor, materiales, etc.), mejorando la relevancia de los resultados.
+k (fragmentos recuperados) | 4 | Recupera suficiente contexto para responder consultas relacionadas con pedidos, cotizaciones, materiales y compras sin incrementar innecesariamente el consumo de tokens.
+[FIN TABLA]
+
+### [Heading 2] 3.4 Especificación de herramientas (tools)
+Guía:  Una tool es una API que consume un agente. El docstring es su interfaz semántica: es lo que el modelo lee para decidir cuándo usarla. Replica esta ficha por cada herramienta.
+Ficha de herramienta — RegistrarPedidoTool
+
+[TABLA]
+Campo | Descripción
+Nombre | registrar_pedido
+Propósito (docstring) | Registra un nuevo pedido realizado por el cliente y almacena toda la información en la base de datos.
+Argumentos | cliente_id: int, productos: list, cantidades: list, detalles: str
+Retorno | pedido_id: int — Identificador del pedido registrado.
+Efectos / idempotencia | Escribe en la base de datos. No es idempotente, ya que cada ejecución genera un nuevo pedido.
+Manejo de errores | Devuelve un error controlado si faltan datos obligatorios o si ocurre un problema al registrar el pedido.
+[FIN TABLA]
+Ficha de herramienta — GenerarCotizacionTool
+
+[TABLA]
+Campo | Descripción
+Nombre | generar_cotizacion
+Propósito (docstring) | Calcula automáticamente el costo del pedido y genera una cotización basada en las reglas de negocio.
+Argumentos | pedido_id: int
+Retorno | cotizacion: dict — Contiene el detalle de costos y el monto total.
+Efectos / idempotencia | Solo lectura y cálculo. Idempotente, ya que el mismo pedido produce la misma cotización mientras no cambien los datos.
+Manejo de errores | Devuelve un error controlado si el pedido no existe o contiene información incompleta.
+[FIN TABLA]
+Ficha de herramienta — EnviarCorreoTool
+
+[TABLA]
+Campo | Descripción
+Nombre | enviar_correo
+Propósito (docstring) | Envía automáticamente cotizaciones, comprobantes y notificaciones al correo electrónico del cliente.
+Argumentos | correo: str, asunto: str, mensaje: str
+Retorno | bool — Indica si el envío fue exitoso.
+Efectos / idempotencia | Envía un correo electrónico. No es idempotente, ya que cada ejecución genera un nuevo envío.
+Manejo de errores | Devuelve un error controlado si el correo es inválido o el servicio de correo no está disponible.
+[FIN TABLA]
+Ficha de herramienta — ProcesarPagoTool
+
+[TABLA]
+Campo | Descripción
+Nombre | procesar_pago
+Propósito (docstring) | Valida el pago realizado por el cliente y actualiza el estado del pedido.
+Argumentos | pedido_id: int, monto: float, metodo_pago: str
+Retorno | estado_pago: bool
+Efectos / idempotencia | Actualiza la base de datos. No es idempotente, ya que modifica el estado del pedido.
+Manejo de errores | Devuelve un error controlado si la transacción es rechazada o el servicio de pago no responde.
+[FIN TABLA]
+Ficha de herramienta — EstimarPresupuestoTool
+
+[TABLA]
+Campo | Descripción
+Nombre | estimar_presupuesto
+Propósito (docstring) | Calcula el presupuesto estimado para la compra de materiales utilizando el historial de compras.
+Argumentos | lista_materiales: list
+Retorno | presupuesto: float
+Efectos / idempotencia | Solo lectura y cálculo. Idempotente.
+Manejo de errores | Devuelve un error controlado si no existe información suficiente para realizar la estimación.
+[FIN TABLA]
+Ficha de herramienta — ComprarMaterialesTool
+
+[TABLA]
+Campo | Descripción
+Nombre | comprar_materiales
+Propósito (docstring) | Gestiona la compra de materiales con el proveedor seleccionado y registra la orden de compra.
+Argumentos | proveedor_id: int, lista_materiales: list
+Retorno | orden_compra_id: int
+Efectos / idempotencia | Escribe en la base de datos y genera una orden de compra. No es idempotente.
+Manejo de errores | Devuelve un error controlado si el proveedor no responde o no dispone del material solicitado.
+[FIN TABLA]
+Ficha de herramienta — NotificarProduccionTool
+
+[TABLA]
+Campo | Descripción
+Nombre | notificar_produccion
+Propósito (docstring) | Envía una notificación al área de producción cuando los materiales han sido recibidos y el pedido puede iniciar su fabricación.
+Argumentos | pedido_id: int
+Retorno | bool — Confirmación de la notificación.
+Efectos / idempotencia | Envía una notificación al sistema de producción. No es idempotente.
+Manejo de errores | Devuelve un error controlado si no es posible registrar o enviar la notificación.
+[FIN TABLA]
+
+### [Heading 3] Ficha de herramienta — ConsultarConocimientoTool
+
+[TABLA]
+Campo | Descripción
+Nombre | consultar_conocimiento
+Propósito (docstring) | Recupera información relevante desde la base de conocimiento (RAG) para apoyar la generación de respuestas, cotizaciones, estimaciones de presupuesto y consultas sobre pedidos, materiales o proveedores.
+Argumentos | consulta: str, categoria: str
+Retorno | documentos: list
+Efectos / idempotencia | Solo lectura. Idempotente.
+Manejo de errores | Devuelve un mensaje controlado cuando no encuentra información relevante o la base documental no está disponible.
+[FIN TABLA]
+
+### [Heading 2] 3.5 Orquestación con estado (LangGraph)
+Guía:  Usa esta sección si elegiste LangGraph en §3.1. LangGraph modela la aplicación como un grafo de nodos (funciones que actualizan un estado compartido) y aristas (transiciones que pueden ser condicionales). Habilita ciclos, ramas, checkpointing del estado y pausas para intervención humana (human-in-the-loop).
+
+### [Heading 3] Estado compartido (TypedDict / Pydantic)
+[ Define el esquema del estado que fluye entre nodos: campos, tipos y reductores. ]
+class EstadoPedido(TypedDict):
+cliente_id: int
+datos_pedido: dict
+pedido_validado: bool
+cotizacion: dict
+pago_confirmado: bool
+lista_materiales: list
+presupuesto: float
+presupuesto_aprobado: bool
+proveedor: str
+materiales_recibidos: bool
+documentos_rag: list
+notificaciones: list
+estado_proceso: str
+
+### [Heading 3] Nodos del grafo
+Guía:  Cada nodo es una función pura: recibe el estado y devuelve un parche con los campos a actualizar. Documenta su propósito, lecturas y escrituras.
+
+[TABLA]
+Nodo | Propósito | 
+ValidatorAgent | Valida que el pedido cumpla las reglas del negocio. | 
+RAGRetriever | Recupera información de materiales, tarifas y políticas antes de invocar el LLM. | 
+PricingAgent | Genera la cotización utilizando reglas del negocio y el contexto recuperado por RAG. | 
+PaymentAgent | Procesa el pago y actualiza el estado del pedido. | 
+MaterialPlannerAgent | Genera automáticamente la lista de materiales requerida. | 
+BudgetAgent | Estima el presupuesto utilizando historial de compras y proveedores. | 
+ApprovalAgent | Espera la aprobación del responsable del presupuesto. | 
+SupplierAgent | Selecciona el proveedor adecuado y registra la compra. | 
+ProductionAgent | Confirma la recepción de materiales y notifica a producción. | 
+[FIN TABLA]
+
+### [Heading 3] Aristas y condicionales
+Guía:  Lista las transiciones: aristas fijas y aristas condicionales (la decisión se toma a partir del estado). Las aristas condicionales son lo que permite ciclos y bucles controlados.
+START
+ValidatorAgent
+RAGRetriever
+PricingAgent
+PaymentAgent
+MaterialPlannerAgent
+BudgetAgent
+ApprovalAgent
+SupplierAgent
+ProductionAgent
+END
+Aristas condicionales:
+Si el pedido no es válido, el proceso finaliza y se notifica al cliente.
+Si el pago no es confirmado, el sistema mantiene el pedido en estado pendiente hasta recibir el pago.
+Si el presupuesto no es aprobado, el flujo regresa al nodo Estimar Presupuesto para generar una nueva estimación.
+Si el proveedor principal no responde, el sistema selecciona automáticamente un proveedor alternativo.
+ApprovalAgent (aprobación del presupuesto)
+SupplierAgent (cuando ningún proveedor cumple las condiciones requeridas)
+ValidatorAgent (cuando el sistema detecte inconsistencias en la información del pedido y requiera revisión humana)
+
+### [Heading 3] Persistencia y checkpointing
+Guía:  LangGraph guarda checkpoints del estado tras cada paso. Esto habilita reanudación tras fallos, time-travel debugging y conversaciones de larga duración.
+Checkpointer elegido: PostgreSQL.
+Se utilizará PostgreSQL como mecanismo de persistencia del estado del grafo debido a su confiabilidad, soporte para transacciones y facilidad para almacenar la información de los procesos de Realizar Pedido y Compra de Materiales. LangGraph almacenará un checkpoint después de cada nodo ejecutado, permitiendo reanudar el flujo ante fallos, realizar auditorías del proceso y mantener la trazabilidad de las decisiones tomadas durante la ejecución.
+Estrategia de thread_id:
+Cada proceso iniciado generará un thread_id único basado en el identificador del pedido (pedido_id). Esto permitirá que múltiples clientes ejecuten procesos simultáneamente sin interferencias, manteniendo el estado independiente de cada pedido y de las compras de materiales asociadas. .
+
+### [Heading 3] Human-in-the-loop (HITL)
+Guía:  Pausa el grafo en puntos críticos para que una persona apruebe, edite o rechace acciones antes de continuar (interrupts). Usa esto para decisiones de alto impacto o cuando la confianza del modelo es baja.
+
+### [Heading 3] Nodos con interrupción
+ApprovalAgent, para la aprobación del presupuesto de compra.
+SupplierAgent, cuando el proveedor principal no tenga disponibilidad y sea necesaria la aprobación de un proveedor alternativo.
+ValidatorAgent, cuando el sistema detecte inconsistencias o información insuficiente en el pedido del cliente.
+
+### [Heading 2] 3.6 Deep Agents — patrón de planificación
+Guía:  Usa esta sección si elegiste Deep Agent en §3.1. Un Deep Agent es un agente que sigue el patrón: planificación explícita, sub-agentes especializados, herramientas y memoria persistente. Se construye típicamente sobre LangGraph y resuelve tareas de varios pasos que un agente ReAct simple no termina de cerrar.
+
+### [Heading 3] Cuándo elegir Deep Agent frente a un agente simple
+
+[TABLA]
+Señal | Indicación
+Tarea con más de 5–10 pasos encadenados | Deep Agent (planificación explícita)
+Subproblemas con experticia distinta (investigar, redactar, validar) | Sub-agentes especializados
+Necesita recordar artefactos entre turnos | Memoria persistente (dict artefactos)
+Pregunta de una sola vuelta con 1–2 tools | Agente simple (no requiere Deep Agent)
+[FIN TABLA]
+
+### [Heading 3] Componentes a especificar
+Instrucciones del planificador: Prompt de sistema que define el rol de planificador experto, los sub-agentes disponibles (Investigador, Redactor, Crítico), y requiere output JSON con objetivo, pasos, sub-agentes requeridos y complejidad estimada.
+Sub-agentes: Ver catálogo abajo.
+Tools del agente principal: RAG retriever (para el Investigador).
+Memoria / artefactos: Dict artefactos en el estado que persiste entre pasos (plan original, última investigación, último borrador).
+Política de terminación: El ciclo termina cuando: (a) el Crítico aprueba el borrador (aprobado=True), o (b) se alcanza el máximo de iteraciones.
+
+### [Heading 3] Catálogo de sub-agentes
+
+[TABLA]
+Subagente | Propósito | Tools / Recursos | Criterio de invocación
+PedidoAgent | Gestiona el registro y validación del pedido del cliente. | RegistrarPedidoTool, ConsultarConocimientoTool | Cuando un cliente registra un nuevo pedido.
+CotizacionAgent | Genera la cotización utilizando reglas de negocio y contexto recuperado mediante RAG. | GenerarCotizacionTool, ConsultarConocimientoTool | Después de validar el pedido.
+PagoAgent | Procesa el pago y actualiza el estado del pedido. | ProcesarPagoTool | Cuando el cliente acepta la cotización.
+MaterialPlannerAgent | Genera la lista de materiales requerida para la producción. | ConsultarConocimientoTool | Después de confirmar el pago.
+BudgetAgent | Estima el presupuesto utilizando el historial de compras. | EstimarPresupuestoTool | Antes de solicitar la aprobación del presupuesto.
+SupplierAgent | Selecciona el proveedor y registra la compra de materiales. | ComprarMaterialesTool | Cuando el presupuesto ha sido aprobado.
+NotificationAgent | Notifica al área de producción y al cliente sobre el estado del proceso. | EnviarCorreoTool, NotificarProduccionTool | Al finalizar cada etapa importante del proceso.
+[FIN TABLA]
+
+### [Heading 3] Límites operativos
+Guía:  Los Deep Agents son potentes pero pueden divergir o gastar muchos tokens. Define límites duros.
+Profundidad máxima de planificación: 10 pasos.
+Número máximo de iteraciones del ciclo: 5 (configurable, default 3).
+Mecanismo de fallback: Si el Crítico no aprueba tras max_iteraciones, se devuelve el mejor borrador actual como respuesta_final.
+Presupuesto de tokens: ~1024 tokens por invocación de sub-agente, ~3000 tokens totales por ejecución completa.
+
+### [Heading 2] 3.7 Esquemas de salida estructurada
+Guía:  Los modelos Pydantic son el contrato de datos entre el LLM y el resto del sistema. Define el esquema que el modelo está obligado a respetar.
+from pydantic import BaseModel, Field, EmailStr
+from typing import Optional, Literal, List
+class OrderData(BaseModel):
+"""Información registrada para un nuevo pedido."""
+nombre: str
+email: EmailStr
+tipo_prenda: str
+cantidad: int = Field(ge=1)
+talla: str
+color: str
+acabado: Literal["ninguno", "estampado", "bordado"]
+fecha_entrega: str
+class ValidationResult(BaseModel):
+"""Resultado de la validación del pedido."""
+pedido_valido: bool
+observaciones: List[str]
+confianza: float = Field(ge=0.0, le=1.0)
+class QuoteResult(BaseModel):
+"""Resultado de la generación de la cotización."""
+pedido_id: int
+cantidad: int
+precio_unitario: float
+subtotal: float
+descuento: float
+igv: float
+total: float
+adelanto: float
+resumen: str
+class MaterialPlan(BaseModel):
+"""Lista de materiales requeridos para producción."""
+pedido_id: int
+materiales: List[str]
+cantidades: List[int]
+class BudgetResult(BaseModel):
+"""Presupuesto estimado para la compra de materiales."""
+presupuesto_estimado: float
+proveedor_recomendado: str
+estado: Literal["Pendiente", "Aprobado", "Rechazado"]
+class PurchaseResult(BaseModel):
+"""Resultado de la compra de materiales."""
+proveedor: str
+orden_compra_id: int
+materiales_confirmados: bool
+fecha_entrega: str
+class PlanDeepAgent(BaseModel):
+"""Plan generado por el Deep Agent."""
+objetivo: str
+pasos: List[str] = Field(min_length=1, max_length=10)
+sub_agentes: List[str]
+complejidad: Literal["baja", "media", "alta"]
+class EvaluationMetric(BaseModel):
+"""Métricas utilizadas para evaluar el sistema."""
+caso_id: str
+exactitud: float
+groundedness: float
+latencia_ms: float
+aprobado: bool
+[ Documenta cada esquema, sus campos y validaciones. ]
+
+### [Heading 2] 3.8 Robustez operativa
+Guía:  Sin trazas, depurar un sistema no determinista es casi imposible. Define la capa de observabilidad y las políticas de resiliencia.
+La solución implementa mecanismos de resiliencia y monitoreo para garantizar la continuidad de los procesos de Realizar Pedido y Compra de Materiales, reduciendo el impacto de fallos en los servicios externos y en las consultas al Modelo de Lenguaje (LLM).
+Reintentos y backoff
+Las llamadas al LLM y a las herramientas externas (correo electrónico, pasarela de pago y consulta de proveedores) realizarán hasta 3 reintentos utilizando un backoff exponencial de 2, 4 y 8 segundos cuando se presenten errores temporales como límites de uso (HTTP 429), indisponibilidad del servicio o fallos de conexión.
+Timeouts
+Cada invocación al Modelo de Lenguaje tendrá un límite de 1024 tokens y un timeout máximo de 30 segundos por solicitud. Si el tiempo es excedido, LangGraph registrará el error y aplicará la política de reintentos antes de continuar con el flujo o solicitar intervención humana.
+Fallback entre modelos
+Si el modelo principal (Gemini 2.5 Flash) no responde después de completar todos los reintentos, el sistema utilizará un modelo alternativo o ejecutará reglas de negocio determinísticas para continuar aquellas tareas que no requieran razonamiento complejo, evitando la interrupción del proceso.
+Observabilidad
+Todas las ejecuciones serán registradas mediante LangSmith, permitiendo almacenar información como:
+Prompt enviado al LLM.
+Respuesta generada.
+Tiempo de respuesta (latencia).
+Consumo estimado de tokens.
+Estado de la ejecución (éxito o error).
+Nodo ejecutado dentro del flujo de LangGraph.
+Estos registros facilitarán la depuración, evaluación y mejora continua del sistema.
+Caché
+En la versión 1.0 no se implementará un mecanismo de caché. Como mejora futura se evaluará la incorporación de una caché semántica para reutilizar respuestas frecuentes y disminuir el consumo de tokens y la latencia.
+
+### [Heading 2] 3.9 Seguridad y privacidad
+El sistema implementará mecanismos de seguridad orientados a proteger la información de los clientes y garantizar el uso seguro del Modelo de Lenguaje durante la ejecución de los procesos automatizados.
+
+### [Heading 3] Gestión de secretos
+Las credenciales utilizadas por el sistema (API Keys de Gemini, LangSmith, servicios de correo electrónico y pasarela de pagos) serán almacenadas en archivos .env, los cuales permanecerán fuera del código fuente. El proyecto incluirá un archivo .env.example con la estructura requerida y el archivo .gitignore evitará que las credenciales sean publicadas en el repositorio.
+
+### [Heading 3] Validación y saneamiento de datos
+Antes de ser procesada por el sistema, toda la información ingresada por el cliente será validada automáticamente. Se verificará el formato del correo electrónico, la cantidad de prendas solicitadas, la fecha de entrega, los tipos de acabado permitidos y demás datos necesarios para garantizar la integridad de la información y evitar errores durante el procesamiento.
+
+### [Heading 3] Protección contra inyección de prompts
+El ValidatorAgent actuará como primera capa de protección, filtrando instrucciones maliciosas o consultas que no estén relacionadas con los procesos de gestión de pedidos o compra de materiales. Además, el sistema limitará el contexto enviado al LLM únicamente a la información necesaria para cada tarea.
+
+### [Heading 3] Protección de datos personales
+Los datos personales de los clientes, como nombres, correos electrónicos y otra información sensible, serán tratados conforme al principio de mínima exposición. Cuando sea posible, la información será anonimizada o enmascarada antes de ser enviada al Modelo de Lenguaje, reduciendo el riesgo de exposición de datos personales.
+
+### [Heading 3] Control de acceso
+El sistema diferenciará los permisos de acceso según el tipo de usuario. Los clientes únicamente podrán consultar y registrar sus propios pedidos, mientras que el personal autorizado podrá aprobar presupuestos, gestionar compras de materiales y acceder a los reportes administrativos.
+
+### [Heading 3] Auditoría y trazabilidad
+Todas las operaciones ejecutadas por LangGraph, los Deep Agents y las herramientas externas serán registradas en la base de datos y en LangSmith, permitiendo mantener un historial completo de las acciones realizadas y facilitando la auditoría del sistema.
+
+### [Heading 1] 4. Registro de decisiones de arquitectura (ADR)
+Guía:  Cada decisión técnica relevante —por qué este modelo, este chunking, este vector store— se registra con su contexto, la decisión tomada, sus consecuencias y las alternativas descartadas. Duplica esta ficha por cada decisión (ADR-001, ADR-002, …).
+ADR-001 — Uso de LangGraph como orquestador principal
+
+[TABLA]
+Campo | Descripción
+Estado | Aceptada
+Fecha | 08/07/2026
+Contexto | Los procesos incluyen validaciones, aprobaciones, ciclos y participación humana, por lo que un flujo lineal resulta insuficiente.
+Decisión | Utilizar LangGraph para coordinar los agentes especializados, administrar el estado compartido y controlar las transiciones entre los procesos de pedidos y compra de materiales.
+Alternativas | (1) LCEL (Chain lineal) — descartado porque no maneja estados complejos. (2) Agente ReAct — descartado porque no controla adecuadamente ciclos ni aprobaciones.
+Consecuencias | 
+[FIN TABLA]
+ADR-002 — Uso de PostgreSQL con pgvector para el subsistema RAG
+
+[TABLA]
+Campo | Descripción
+Estado | Aceptada
+Fecha | 08/07/2026
+Contexto | El sistema necesita recuperar información histórica sobre pedidos, materiales y proveedores para apoyar las decisiones del LLM.
+Decisión | Utilizar PostgreSQL junto con la extensión pgvector para almacenar tanto los datos operacionales como los embeddings utilizados por el sistema RAG.
+Alternativas | (1) ChromaDB — descartada por mantener otra base de datos adicional. (2) Pinecone — descartada por depender de servicios externos.
+Consecuencias | 
+[FIN TABLA]
+ADR-003 — Uso de Gemini 2.5 Flash como Modelo de Lenguaje
+
+[TABLA]
+Campo | Descripción
+Estado | Aceptada
+Fecha | 08/07/2026
+Contexto | Se requiere un Modelo de Lenguaje con buen rendimiento para interpretar consultas, apoyar decisiones y generar respuestas rápidamente.
+Decisión | Utilizar Gemini 2.5 Flash como modelo principal dentro de LangChain.
+Alternativas | (1) GPT-4o — descartado por costos. (2) Modelos locales — descartados por requerimientos de hardware.
+Consecuencias | 
+[FIN TABLA]
+ADR-004 — Uso de Deep Agents especializados
+
+[TABLA]
+Campo | Descripción
+Estado | Aceptada
+Fecha | 08/07/2026
+Contexto | Los procesos incluyen actividades con responsabilidades diferentes, como validar pedidos, generar cotizaciones, estimar presupuestos y coordinar proveedores.
+Decisión | Implementar un conjunto de Deep Agents especializados coordinados por LangGraph.
+Alternativas | (1) Un único agente con un prompt extenso — descartado por dificultar el mantenimiento.
+Consecuencias | 
+[FIN TABLA]
+ADR-005 — Uso de Human-in-the-Loop para decisiones críticas
+
+[TABLA]
+Campo | Descripción
+Estado | Aceptada
+Fecha | 08/07/2026
+Contexto | La aprobación del presupuesto y la compra de materiales representan decisiones de impacto económico.
+Decisión | Incorporar puntos de interrupción (Human-in-the-Loop) antes de aprobar presupuestos y realizar compras de materiales.
+Alternativas | Automatización completa — descartada por el riesgo financiero asociado.
+Consecuencias | 
+[FIN TABLA]
+
+### [Heading 2] ADR-006 — Topología jerárquica tipo estrella (Orchestrator)
+
+[TABLA]
+Estado | Aceptada
+Fecha | 07/07/2026
+Contexto | Se necesita coordinar 5+ agentes especializados sin que interactúen directamente entre sí (evitar complejidad N×N).
+Decisión | Usar un Orchestrator central determinístico (NO LLM) que enruta mensajes según una máquina de estados (ConversationStage).
+Alternativas | (1) Red peer-to-peer de agentes — descartada por complejidad de coordinación. (2) Un solo agente mega-prompt — descartada por falta de separación de responsabilidades.
+Consecuencias | 
+[FIN TABLA]
+
+### [Heading 2] ADR-007 — ChromaDB local en lugar de pgvector/Supabase
+
+[TABLA]
+Estado | Aceptada
+Fecha | 07/07/2026
+Contexto | El subsistema RAG necesita un vector store para embeddings. Las opciones son pgvector (requiere Postgres), Pinecone/Weaviate (servicios externos), o ChromaDB (local).
+Decisión | Usar ChromaDB local con persistencia en disco.
+Alternativas | (1) pgvector (Supabase) — descartada porque requiere infra externa para demo. (2) FAISS — descartada por menor integración con LangChain. (3) Pinecone — descartada por costo y dependencia externa.
+Consecuencias | 
+[FIN TABLA]
+
+### [Heading 2] ADR-008 — GitHub Models como proveedor LLM principal
+
+[TABLA]
+Estado | Aceptada
+Fecha | 07/07/2026
+Contexto | Se necesita un proveedor LLM accesible, gratuito y compatible con OpenAI API para el entorno académico.
+Decisión | Usar GitHub Models (models.github.ai) con gpt-4o-mini como modelo principal.
+Alternativas | (1) OpenAI directo — descartada por costo ($). (2) Google Gemini — descartada por rate limits estrictos (15 req/min free). (3) Ollama local — descartada por requisitos de hardware.
+Consecuencias | 
+[FIN TABLA]
+
+### [Heading 2] ADR-009 — HuggingFace Embeddings locales (all-MiniLM-L6v2)
+
+### [Heading 2] ADR-010 — SQLite como simulación de Google Sheets
+
+### [Heading 1] 5. Plan de evaluación
+Lo que en software tradicional sería testing, aquí se convierte en evaluación continua: el comportamiento es probabilístico, así que se mide sobre un conjunto representativo de casos y se vigila ante cada cambio de prompt o de modelo.
+
+### [Heading 2] 5.1 Conjunto de evaluación (golden set)
+Guía:  Lista los casos con su entrada y la salida esperada. Es el ancla de toda afirmación de calidad y la red de seguridad contra regresiones.
+
+[TABLA]
+ID | Entrada | Salida esperada | Proceso
+GS-01 | Registrar pedido de 100 polos talla M color azul | Pedido registrado correctamente | RF-01
+GS-02 | Registrar pedido sin cantidad de prendas | Error indicando dato obligatorio | RF-01
+GS-03 | Solicitar cotización para 50 camisas bordadas | Cotización generada automáticamente | RF-03
+GS-04 | Cliente acepta la cotización y realiza el pago | Pago validado y pedido aprobado | RF-06
+GS-05 | Consultar estado del pedido | Estado actual mostrado correctamente | RF-12
+GS-06 | Generar lista semanal de materiales | Lista consolidada correctamente | RF-07
+GS-07 | Estimar presupuesto de compra | Presupuesto calculado utilizando historial de compras | RF-08
+GS-08 | Responsable rechaza el presupuesto | El proceso retorna a generar una nueva estimación | RF-09
+GS-09 | El proveedor principal no responde | Se selecciona automáticamente un proveedor alternativo | RF-10
+GS-10 | Confirmar recepción de materiales | Producción recibe la notificación automáticamente | RF-11
+[FIN TABLA]
+
+### [Heading 2] 5.2 Métricas
+
+[TABLA]
+Métrica | Definición | Umbral | Método de evaluación
+Exactitud | Porcentaje de respuestas correctas en la validación de pedidos, generación de cotizaciones, estimación de presupuestos y consultas realizadas al sistema. |  | Comparación automática con el Golden Set utilizando coincidencia semántica y validación de resultados esperados.
+Groundedness | Nivel de fidelidad de las respuestas respecto a la información recuperada mediante el subsistema RAG (historial de pedidos, materiales, proveedores y reglas de negocio). |  | Evaluación mediante LLM-as-Judge y verificación de que toda respuesta esté respaldada por el contexto recuperado.
+Relevancia | Grado en que los documentos recuperados por el RAG son pertinentes para responder la consulta del usuario o apoyar la decisión del agente. |  | Evaluación automática mediante LLM-as-Judge sobre los documentos recuperados.
+Latencia (p95) | Tiempo total desde que el usuario envía la solicitud hasta que recibe la respuesta o se completa la acción correspondiente. | < 3 segundos | Medición automática utilizando LangSmith y time.perf_counter().
+Costo por consulta | Costo promedio asociado al consumo de tokens del LLM durante la ejecución de cada solicitud. |  | Cálculo automático a partir del consumo de tokens reportado por el proveedor del modelo (Claude/Gemini) y LangSmith.
+Éxito de ejecución de Tools | Porcentaje de herramientas (registro de pedidos, cotización, pago, compra de materiales y notificaciones) ejecutadas correctamente sin errores. |  | Registro automático de ejecuciones exitosas y fallidas mediante LangSmith y logs del sistema.
+Éxito del flujo de LangGraph | Porcentaje de procesos que completan correctamente todos los nodos del grafo sin interrupciones inesperadas. |  | Monitoreo del estado del grafo y trazabilidad de las ejecuciones en LangSmith.
+[FIN TABLA]
+
+### [Heading 2] 5.3 LangSmith — observabilidad y evaluación
+LangSmith será la plataforma utilizada para monitorear, depurar y evaluar el comportamiento del sistema desarrollado con LangChain, LangGraph y Deep Agents. Gracias a las trazas registradas será posible conocer el flujo completo de ejecución de cada solicitud, incluyendo los prompts enviados al modelo, los documentos recuperados por el subsistema RAG, las herramientas ejecutadas, el consumo de tokens y los tiempos de respuesta. Esta información permitirá identificar errores, comparar versiones del sistema y optimizar continuamente el desempeño de los agentes inteligentes.
+
+### [Heading 3] 5.3.1 Tracing en desarrollo y producción
+Para garantizar la observabilidad del sistema se habilitarán las variables de entorno LANGSMITH_TRACING, LANGSMITH_API_KEY y LANGSMITH_PROJECT.
+Se utilizará la siguiente convención para los proyectos:
+fabrica-ropa-dev
+fabrica-ropa-test
+fabrica-ropa-prod
+Cada ejecución será etiquetada mediante metadata para facilitar su identificación. Entre las etiquetas registradas se incluyen:
+env (dev, test o producción)
+modelo utilizado (Claude Sonnet 4 o Gemini, según la implementación final)
+agente ejecutado
+proceso (Realizar Pedido o Compra de Materiales)
+versión del prompt
+Además, cada traza almacenará información como:
+prompt_version
+model
+provider
+session_id
+pedido_id
+tiempo de ejecución
+consumo de tokens
+Como medida de privacidad, antes de enviar información al modelo se anonimizarán los datos personales del cliente (PII), garantizando que únicamente se utilice la información necesaria para el procesamiento de la consulta.
+
+### [Heading 3] 5.3.2 Datasets y evaluadores
+Guía:  El golden set de §5.1 se sube a LangSmith como dataset. Cada corrida (experiment) ejecuta el sistema contra el dataset y aplica evaluadores automáticos. Esto convierte la evaluación en algo repetible y comparable entre versiones.
+
+[TABLA]
+Evaluador | Definición | Tipo
+Correctness | Verifica que la respuesta del sistema coincida con la salida esperada del Golden Set. | LLM-as-Judge + comparación semántica
+Groundedness | Evalúa que la respuesta esté respaldada por la información recuperada mediante RAG. | LLM-as-Judge
+Relevancia | Comprueba que los documentos recuperados sean pertinentes para la consulta realizada. | LLM-as-Judge
+Exact Match | Valida respuestas determinísticas como estados del pedido, aprobaciones y resultados de herramientas. | Heurístico
+Latencia | Mide el tiempo total de ejecución de cada caso de prueba. | Automático
+Consumo de tokens | Calcula la cantidad de tokens utilizados durante la ejecución de cada proceso. | Automático
+[FIN TABLA]
+
+### [Heading 3] 5.3.3 Comparación de experimentos
+Guía:  Cada cambio relevante (prompt vN, modelo distinto, nuevos parámetros de chunking) se ejecuta como un experimento sobre el mismo dataset y se compara con el baseline. Solo se promueve la versión si supera al baseline en las métricas objetivo.
+Cada modificación importante del sistema (prompts, configuración del RAG, herramientas, agentes o modelo de lenguaje) será evaluada mediante un nuevo experimento en LangSmith utilizando el mismo Golden Set.
+La versión inicial del sistema será considerada el baseline, contra el cual se compararán todas las mejoras posteriores.
+Un experimento únicamente será promovido cuando cumpla simultáneamente los siguientes criterios:
+Exactitud igual o superior al 90%.
+Groundedness igual o superior al 95%.
+Latencia menor a 3 segundos.
+Sin incremento significativo en el costo por consulta.
+Como ejemplo, una nueva versión del Prompt de generación de cotizaciones podrá reemplazar a la versión anterior únicamente si demuestra una mejora en la precisión sin afectar el tiempo de respuesta ni la calidad de las recomendaciones.
+
+### [Heading 3] 5.3.4 Evaluación en línea (online evals)
+Guía:  Además del set offline, evaluadores que corren sobre tráfico real en producción detectan degradación temprano (drift de datos, regresiones por cambios externos del modelo).
+Una vez desplegado el sistema, LangSmith permitirá monitorear continuamente las ejecuciones realizadas por los usuarios.
+Durante la etapa de desarrollo se registrará el 100 % de las trazas. En producción podrá configurarse un porcentaje de muestreo para reducir costos sin perder capacidad de monitoreo.
+Se establecerán alertas automáticas cuando ocurra alguna de las siguientes situaciones:
+Exactitud inferior al 85 %.
+Incremento anormal de la latencia.
+Errores repetitivos en la ejecución de Tools.
+Fallos en la recuperación del contexto mediante RAG.
+Asimismo, el sistema permitirá que los usuarios y el personal administrativo califiquen las respuestas generadas por el agente inteligente, proporcionando retroalimentación para futuras mejoras.
+
+### [Heading 2] 5.4 Procedimiento
+La evaluación del sistema seguirá el siguiente procedimiento:
+Ejecutar el sistema completo utilizando el Golden Set definido en la sección 5.1.
+Registrar automáticamente las trazas mediante LangSmith.
+Calcular las métricas definidas en la sección 5.2 (exactitud, groundedness, relevancia, latencia y costo).
+Comparar los resultados obtenidos con los umbrales establecidos.
+Analizar los casos que no cumplan los criterios de calidad e identificar oportunidades de mejora.
+Repetir la evaluación cada vez que se modifique un prompt, un agente, el modelo de lenguaje, el subsistema RAG o las herramientas implementadas.
+
+### [Heading 2] 5.5 Reporte de resultados
+[ Resumen de la última corrida: versión evaluada, fecha, métricas obtenidas y decisión (aprobar / iterar). ]
+
+[TABLA]
+Campo | Valor
+Versión evaluada | v1.0
+Fecha | Pendiente de ejecución
+Modelo LLM | Claude Sonnet 4
+Casos evaluados | 10 (Golden Set inicial)
+Exactitud promedio | Pendiente de evaluación
+Groundedness promedio | Pendiente de evaluación
+Relevancia promedio | Pendiente de evaluación
+Latencia promedio | Pendiente de evaluación
+Consumo promedio de tokens | Pendiente de evaluación
+Resultado | Pendiente
+Decisión | Pendiente (Aprobar / Iterar)
+[FIN TABLA]
+
+### [Heading 1] 6. Catálogo de prompts
+Guía:  Los prompts evolucionan y son artefactos versionables: trátalos como código, con historial y el resultado de evaluación de cada versión. Esto distingue un proyecto serio de un prototipo.
+
+[TABLA]
+Prompt ID | Versión | Propósito | Métrica | Notas de cambio
+P-validar-pedido | v1 | Verificar que el pedido cumpla las reglas de negocio y que la información sea válida. | 90% | Versión inicial para validación automática.
+P-generar-cotizacion | v1 | Generar una cotización personalizada (prenda, cantidad, acabados). | 92% | Incluye formato estructurado y desglose.
+P-rag-consultas | v1 | Responder consultas usando únicamente RAG. | 94% | Reduce alucinaciones y limita contexto.
+P-procesar-pago | v1 | Interpretar y validar pagos y comprobantes digitales. | 90% | Integrado con pasarela de pagos.
+P-estimar-presupuesto | v1 | Analizar historial para estimar presupuesto de materiales. | 91% | Utiliza información histórica de PostgreSQL.
+P-seleccionar-proveedor | v1 | Recomendar proveedores según disponibilidad, precio y tiempo. | 90% | Considera proveedores alternativos.
+P-validar-presupuesto | v1 | Generar explicación del presupuesto para aprobación humana. | 90% | Diseñado para Human-in-the-Loop.
+P-generar-lista-materiales | v1 | Transformar detalles del pedido en lista estructurada. | 93% | Apoya el proceso semanal de abastecimiento.
+P-notificar-produccion | v1 | Generar notificaciones para producción tras recibir materiales. | 95% | Automatiza la comunicación interna.
+P-planificador-deep-agent | v1 | Elaborar planes para tareas complejas de pedidos y compras. | 90% | Prompt principal del Deep Agent.
+P-critico-deep-agent | v1 | Evaluar resultados de subagentes y verificar criterios. | 90% | Permite iteraciones controladas.
+[FIN TABLA]
+
+### [Heading 2] Texto completo de los prompts
+P-validar-pedido v1 (Activo)
+Rol del agente: Eres un especialista en gestión de pedidos textiles.
+Instrucciones: Tu tarea es analizar la información enviada por el cliente y verificar:
+1. Que el pedido corresponda al rubro textil.
+2. Que todos los datos obligatorios estén presentes.
+3. Que la cantidad solicitada sea válida.
+4. Que la fecha de entrega sea factible.
+Devuelve únicamente un JSON con: - pedido_valido - observaciones - nivel_confianza
+P-generar-cotizacion v1 (Activo)
+Rol del agente: Eres un asistente experto en confección de uniformes.
+Instrucciones: Genera una cotización utilizando:
+- tipo de prenda
+- cantidad
+- acabados
+- descuentos aplicables
+Devuelve: - precio_unitario - subtotal - descuento - total - adelanto_requerido - resumen_comercial
+P-estimar-presupuesto v1 (Activo)
+Rol del agente: Eres un asistente encargado de estimar el presupuesto para la compra de materiales.
+Instrucciones: Analiza el historial de compras recuperado mediante RAG. Calcula un presupuesto estimado para la compra de materiales considerando:
+- precios históricos
+- variación de costos
+- cantidad requerida
+- proveedor habitual
+Genera una explicación clara que justifique la estimación.
+P-seleccionar-proveedor v1 (Activo)
+Rol del agente: Eres un asistente encargado de recomendar proveedores.
+Instrucciones: Analiza los proveedores disponibles. Prioriza: 1. Disponibilidad de materiales. 2. Menor costo. 3. Tiempo de entrega. 4. Historial de cumplimiento. Devuelve una recomendación argumentada y una alternativa de respaldo.
+P-procesar-pago v1 (Activo)
+Rol del agente: Eres un asistente encargado de validar pagos y comprobantes digitales.
+Instrucciones: Interpreta y valida la información relacionada con pagos y comprobantes digitales. Integrado con la pasarela de pagos.
+P-validar-presupuesto v1 (Activo)
+Rol del agente: Eres un asistente especializado en validar presupuestos.
+Instrucciones: Genera una explicación del presupuesto estimado para facilitar la aprobación humana. Diseñado para el proceso Human-in-the-Loop.
+P-generar-lista-materiales v1 (Activo)
+Rol del agente: Eres un asistente encargado de abastecimiento.
+Instrucciones: Transforma los detalles del pedido en una lista estructurada de materiales requeridos para producción. Apoya el proceso semanal de abastecimiento.
+P-notificar-produccion v1 (Activo)
+Rol del agente: Eres un asistente de comunicación interna.
+Instrucciones: Genera notificaciones claras para el área de producción cuando los materiales han sido recibidos.
+P-critico-deep-agent v1 (Activo)
+Rol del agente: Eres el agente crítico del sistema.
+Instrucciones: Evaluar los resultados generados por otros subagentes y determinar si cumplen los criterios establecidos. Permite iteraciones controladas antes de finalizar una respuesta.
+P-RAG-CONSULTAS v1 (Activo)
+Rol del agente
+Eres un asistente virtual de una fábrica de ropa que responde consultas utilizando información recuperada mediante el sistema RAG.
+Instrucciones
+Responde únicamente con la información obtenida desde la base de conocimientos.
+No inventes datos ni proporciones información fuera del contexto recuperado.
+Si la información no está disponible responde:
+"No dispongo de información suficiente para responder esa consulta."
+P-ESTIMAR-PRESUPUESTO v1 (Activo)
+Rol del agente
+Eres un asistente encargado de estimar el presupuesto para la compra de materiales.
+Instrucciones
+Analiza el historial de compras y los materiales requeridos.
+Genera una estimación considerando precios históricos y cantidades necesarias.
+Si la información es insuficiente, indícalo claramente.
+No alteres los datos históricos utilizados para el cálculo.
+P-SELECCIONAR-PROVEEDOR v1 (Activo)
+Rol del agente
+Eres un asistente encargado de recomendar el proveedor más adecuado para la compra de materiales.
+Instrucciones
+Evalúa disponibilidad, historial de compras y tiempos de entrega.
+Prioriza el proveedor principal.
+Si no existe disponibilidad, recomienda un proveedor alternativo.
+Justifica brevemente la recomendación utilizando únicamente la información disponible.
+P-PLANIFICADOR-DEEP-AGENT v1 (Activo)
+Eres el planificador principal del sistema basado en Deep Agents.
+Instrucciones
+Analiza la solicitud recibida.
+Divide la tarea en subtareas cuando sea necesario.
+Asigna cada actividad al subagente correspondiente.
+Coordina el flujo mediante LangGraph hasta completar el proceso.
+Devuelve el estado final del proceso y las acciones ejecutadas.
+
+### [Heading 1] 7. Medición de éxito y ROI
+Las métricas técnicas del plan de evaluación (§5) no bastan para demostrar valor: un sistema puede tener 95% de exactitud y aun así no justificar su costo. Esta sección define cómo se mide el éxito desde la perspectiva de negocio y cómo se calcula el retorno de inversión.
+
+### [Heading 2] 7.1 KPIs de negocio
+Guía:  Identifica los indicadores que la organización ya rastrea (o debería rastrear) y que el sistema impactará. Cada KPI debe ser observable, atribuible y comparable contra una línea base.
+
+### [Heading 3] KPIs del proceso Realizar Pedido
+
+[TABLA]
+KPI | Descripción | Meta
+Tiempo de generación de cotización | Tiempo desde la solicitud hasta la emisión de la cotización | < 30 segundos
+Tiempo de registro de pedido | Tiempo requerido para registrar un pedido completo | < 2 minutos
+Pedidos automatizados | Porcentaje de pedidos procesados automáticamente | 
+Exactitud de cotizaciones | Coincidencia entre la cotización generada y las reglas de negocio | 
+Tiempo de validación de pago | Tiempo requerido para confirmar el pago | < 1 minuto
+Satisfacción del cliente | Nivel de satisfacción respecto al proceso de compra | 
+[FIN TABLA]
+
+### [Heading 3] KPIs del proceso Compra de Materiales
+
+[TABLA]
+KPI | Descripción | Meta
+Tiempo de estimación del presupuesto | Tiempo requerido para generar el presupuesto semanal | < 5 minutos
+Compras automatizadas | Porcentaje de compras gestionadas automáticamente | 
+Exactitud de estimaciones | Coincidencia entre presupuesto estimado y presupuesto final | 
+Tiempo de selección de proveedor | Tiempo requerido para seleccionar un proveedor | < 3 minutos
+Tiempo de abastecimiento | Tiempo desde la compra hasta la recepción de materiales | Reducir 30%
+Notificaciones automáticas a producción | Materiales recibidos notificados automáticamente | 100%
+[FIN TABLA]
+
+### [Heading 2] 7.2 Línea base (baseline pre-IA)
+Guía:  Sin un baseline cuantitativo, cualquier mejora es anecdótica. Mide el estado previo durante al menos 2–4 semanas antes de desplegar, o reconstrúyelo a partir de registros históricos.
+
+[TABLA]
+Métrica | Valor base actual | Fuente / periodo
+Tiempo medio de atención al cliente | 20 minutos | Estimación basada en el proceso manual de registro y cotización de pedidos.
+Tiempo de generación de cotizaciones | 15 minutos | Elaboración y envío manual por parte del personal.
+Tiempo de estimación del presupuesto de materiales | 2 horas | Elaboración manual utilizando historial de compras.
+Errores en el registro de pedidos y cotizaciones | Aproximadamente 5 % | Registros manuales y cálculos realizados por el personal.
+[FIN TABLA]
+
+### [Heading 2] 7.3 Cálculo de ROI
+Guía:  Estimación honesta: incluye todos los costos (no solo el modelo) y solo los beneficios efectivamente medibles. Acompáñala de un análisis de sensibilidad en los supuestos clave (volumen, precio del modelo, ahorro por consulta).
+
+### [Heading 3] Costos del proyecto
+
+[TABLA]
+Concepto | Costo mensual estimado (S/.)
+Hosting de la aplicación | 50
+Base de datos PostgreSQL | 20
+Consumo de modelos LLM (Claude) | 50
+Servicios de correo y notificaciones | 10
+Mantenimiento y soporte | 20
+Total mensual | 150
+[FIN TABLA]
+
+### [Heading 3] Beneficios cuantificables – Realizar Pedido
+
+[TABLA]
+Beneficio | Valor mensual estimado (S/.)
+Reducción de horas administrativas | 400
+Menor tiempo de atención al cliente | 250
+Disminución de errores en pedidos | 150
+Mayor capacidad de atención | 300
+Total | 1,100
+[FIN TABLA]
+
+### [Heading 3] Beneficios cuantificables – Compra de Materiales
+
+[TABLA]
+Beneficio | Valor mensual estimado (S/.)
+Optimización de compras | 200
+Reducción del tiempo de planificación | 100
+Menor dependencia operativa | 50
+Mejor selección de proveedores | 50
+Total | 400
+[FIN TABLA]
+
+### [Heading 3] Beneficio total estimado
+
+[TABLA]
+Concepto | Valor (S/.)
+Beneficios mensuales | 1,500
+Costos mensuales | 150
+Beneficio neto | 1,350
+[FIN TABLA]
+
+### [Heading 3] Fórmula de ROI
+ROI = 900%
+
+### [Heading 2] 7.4 Tablero de éxito (técnico + negocio)
+Guía:  Un único cuadro de mando que combina las métricas técnicas (§5) con los KPIs de negocio (§7.1). Es lo que se revisa con sponsors y stakeholders.
+
+[TABLA]
+Indicador | Dimensión | Umbral | Actual
+TÉCNICA |  |  | 
+Exactitud sobre el Golden Set | Técnica |  | Pendiente
+Groundedness (RAG) | Técnica |  | Pendiente
+Latencia promedio (p95) | Técnica | < 3 segundos | Pendiente
+Costo por consulta | Operativa |  | Pendiente
+Disponibilidad del sistema | Técnica |  | Pendiente
+NEGOCIO: REALIZAR PEDIDO |  |  | 
+Pedidos registrados automáticamente | Negocio |  | Pendiente
+Cotizaciones generadas automáticamente | Negocio |  | Pendiente
+Pagos procesados correctamente | Negocio |  | Pendiente
+Tiempo medio de atención al cliente | Negocio | < 2 minutos | Pendiente
+Tiempo de generación de cotizaciones | Negocio | < 1 minuto | Pendiente
+NEGOCIO: COMPRA DE MATERIALES |  |  | 
+Presupuestos de compra generados automáticamente | Negocio |  | Pendiente
+Compras de materiales automatizadas | Negocio |  | Pendiente
+Selección correcta de proveedores | Negocio |  | Pendiente
+Reducción del tiempo de estimación de presupuesto | Negocio |  | Pendiente
+Notificaciones automáticas a producción | Negocio | 100 % | Pendiente
+NEGOCIO: GENERAL |  |  | 
+Reducción de errores administrativos | Negocio |  | Pendiente
+Satisfacción del cliente | Negocio |  | Pendiente
+[FIN TABLA]
+
+### [Heading 2] 7.5 Cadencia de revisión
+
+[TABLA]
+Frecuencia | Actividad
+Diaria | Revisión de pedidos procesados y compras ejecutadas
+Semanal | Evaluación de presupuestos, proveedores y trazas LangSmith
+Mensual | Revisión de KPIs técnicos y de negocio
+Trimestral | Evaluación del ROI y mejora continua
+Semestral | Revisión integral de arquitectura, prompts y agentes
+[FIN TABLA]
+
+### [Heading 1] 8. Despliegue y operación
+Cómo se construye, libera y opera el sistema en producción. La diferencia con software tradicional: los prompts y los modelos son artefactos versionables que pueden cambiar el comportamiento sin que cambie el código, así que el pipeline de release debe versionarlos y evaluarlos junto al código.
+
+### [Heading 2] 8.1 Entornos
+
+[TABLA]
+Entorno | Propósito | Datos / Modelo
+Desarrollo (DEV) | Implementación y pruebas de nuevas funcionalidades, prompts, tools y agentes. | Datos sintéticos, modo mock sin LLM.
+Pruebas (STG) | Validación integral del sistema antes del despliegue productivo. | Datos reales de prueba, gpt-4o-mini vía GitHub Models.
+Producción (PROD) | Operación real de los procesos de pedidos y compra de materiales. | Datos reales, gpt-4o-mini, fabrica-ropa-prod en LangSmith.
+[FIN TABLA]
+
+### [Heading 2] 8.2 CI/CD y versionado
+Guía:  Trata prompts, esquemas y configuración como código: en repositorio, con revisión por pares y pipeline automatizado. Cada cambio dispara la evaluación de §5.
+Repositorio: Git con código, prompts versionados (en prompts/catalog.py), esquemas Pydantic y configuración.
+Pipeline CI: pytest tests/ (5 tests unitarios + 1 E2E), ejecución del golden set vía evaluation/run_eval.py.
+Regla de promoción: No se despliega si la evaluación cae por debajo del 80% de aprobación.
+Versionado de prompts:
+
+### [Heading 2] 8.3 Topología de despliegue
+Guía:  Elige la topología según volumen, requisitos de latencia, soberanía de datos y madurez del equipo. Cada opción tiene implicaciones de costo y operación.
+
+[TABLA]
+Opción | Cuándo aplica | Trade-offs
+Self-hosted (Docker/local) | ELEGIDA | Simple, sin dependencias cloud. Ideal para demo académica. No HA.
+LangGraph Platform (cloud) MV | MVP rápido, sin ops | Menor control, datos fuera
+Kubernetes | Alta escala, HA | Mayor complejidad ops
+Serverless | Tráfico esporádico | Cold starts, límites de tiempo
+[FIN TABLA]
+Justificación: Para el contexto académico y la demo, un despliegue local con streamlit run app.py es la opción más práctica. Streamlit proporciona la interfaz web sin necesidad de backend separado.
+
+### [Heading 2] 8.4 Configuración y secretos
+API keys fuera del código: .env con LLM_API_KEY, LANGSMITH_API_KEY. .env.example como plantilla sin secretos.
+Configuración por entorno: EXECUTION_MODE (real/mock), LANGSMITH_PROJECT (dev/stg/prod), LLM_PROVIDER (github/openai/gemini).
+Rotación de keys: Manual; se recomienda rotar el GitHub PAT cada 90 días.
+Mínimo privilegio: El GitHub PAT solo necesita scope de models:read.
+
+### [Heading 2] 8.5 Estrategias de release
+
+[TABLA]
+Estrategia | cuando usar
+Shadow Testing | Validación de nuevos prompts sin afectar al usuario.
+Canary Release | Despliegue gradual de nuevas versiones del sistema.
+Feature Flags | Activación progresiva de nuevos agentes, herramientas y funcionalidades RAG.
+[FIN TABLA]
+
+### [Heading 2] 8.6 Monitoreo y alertas
+Guía:  LangSmith cubre la observabilidad del comportamiento del LLM; complétalo con métricas de infraestructura tradicionales. Las alertas deben ser accionables: cada una con un runbook.
+Latencia:
+Tasa de error: Conteo de success/error por agente.
+Costo acumulado: Tokens estimados (chars/4) × tarifa.
+Calidad: Evaluación offline con golden set; online con LangSmith trazas.
+Seguridad: Fallback a mock ante inyección detectada por ValidatorAgent.
+
+### [Heading 2] 8.7 Procedimiento ante incidentes
+Detección: Alerta de métrica (latencia > 3s, tasa de error > 10%, tokens > presupuesto).
+Triage: Clasificar como degradación de calidad, latencia, costo o disponibilidad.
+Diagnóstico: Revisar trazas LangSmith del periodo; inspeccionar metrics.jsonl.
+Mitigación:
+Post-mortem: Causa raíz, lecciones, ajustes al golden set y a los evaluadores.
+
+### [Heading 2] 8.8 Escalado y FinOps
+Guía:  El costo del LLM es lineal con los tokens y crece silenciosamente. Vigílalo desde el día uno.
+Etiquetado: Cada invocación lleva agent_name y session_id para atribuir costos.
+Caché semántica: Candidato para v2 — cachear respuestas RAG frecuentes en ChromaDB.
+Modelos por consulta: Usar gpt-4o-mini (barato) para validación y recolección; reservar modelos mayores solo si la evaluación lo requiere.
+Límites por usuario: Rate limit configurable; en demo no aplica.
+Revisión mensual: Comparar tokens consumidos vs. presupuesto; ajustar max_tokens si es necesario.
+despliegue: https://multiagente-automatizacion-ib3gye83fy2lojhl8tpmrq.streamlit.app/
+
+### [Heading 1] 9. Apéndices
+
+### [Heading 2] 9.1 Glosario
+
+[TABLA]
+Término | Definición
+Runnable | Interfaz común de todo componente de LangChain; se compone con el operador pipe (|).
+LCEL | LangChain Expression Language; composición declarativa de Runnables (prompt | llm | parser).
+LangGraph | Framework de orquestación con estado: grafo de nodos y aristas con checkpointing, ciclos y HITL.
+LangSmith | Plataforma de tracing, datasets, evaluación y monitoreo para aplicaciones LangChain/LangGraph.
+Deep Agent | Patrón de agente con planificación explícita, sub-agentes especializados y memoria persistente.
+Checkpointing | Persistencia del estado del grafo tras cada paso, para reanudación y debugging.
+Human-in-the-loop (HITL) | Interrupción del flujo para que una persona apruebe, edite o rechace antes de continuar.
+RAG | Retrieval-Augmented Generation; recuperar contexto relevante y luego generar la respuesta con ese contexto.
+Tool | Función externa que el modelo puede solicitar invocar (EmailTool, SheetsTool).
+Golden set | Conjunto de casos con respuestas esperadas para evaluar el sistema y detectar regresiones.
+Groundedness | Grado en que una respuesta se apoya en el contexto recuperado (no alucina).
+LLM-as-judge | Evaluador que usa un LLM para juzgar la calidad de otra respuesta contra un criterio.
+Online eval | Evaluación sobre tráfico real en producción, no solo sobre un dataset offline.
+BM25 | Algoritmo de ranking léxico basado en TF-IDF; complementa la búsqueda densa en RAG híbrido.
+MCP | Model Context Protocol; mensajes JSON con schema Pydantic validado para comunicación entre agentes.
+Event Bus | Sistema pub/sub para coordinación asíncrona entre agentes; cada evento tiene source, nombre y datos.
+Orchestrator | Coordinador central del sistema multiagente; máquina de estados que enruta mensajes a subagentes.
+FinOps | Práctica de gestión financiera de costos en la nube y en infraestructura de IA.
+ADR | Architecture Decision Record; registro de una decisión técnica con contexto, alternativas y consecuencias.
+[FIN TABLA]
+
+### [Heading 2] 9.2 Referencias
+Documentación oficial de LangChain: https://python.langchain.com/
+Documentación oficial de LangGraph: https://langchain-ai.github.io/langgraph/
+Documentación oficial de LangSmith: https://docs.smith.langchain.com/
+Patrón Deep Agents — planificación, sub-agentes, memoria persistente.
+ChromaDB Documentation: https://docs.trychroma.com/
+sentence-transformers (all-MiniLM-L6-v2): sentence-transformers (all-MiniLM-L6-v2): https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2
+rank-bm25 (BM25Okapi): https://github.com/dorianbrown/rank_bm25
+Streamlit Documentation: https://docs.streamlit.io/
+GitHub Models: https://github.com/marketplace/models
+Pydantic v2 Documentation: https://docs.pydantic.dev/

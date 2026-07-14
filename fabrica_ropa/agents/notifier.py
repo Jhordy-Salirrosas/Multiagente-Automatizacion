@@ -62,11 +62,17 @@ class NotifierAgent(BaseAgent):
         assert registry and registry.pedido_id
         assert order.email
         asunto = f"Constancia de pedido {registry.pedido_id} - {EMPRESA_NOMBRE}"
+        
+        pdf_path = None
+        if registry.pdf_path:
+            pdf_path = registry.pdf_path
+            
         try:
             ruta = self.email_tool.send(
                 destinatario=order.email,
                 asunto=asunto,
                 cuerpo_html=cuerpo_html,
+                pdf_path=pdf_path
             )
             result = NotificationResult(
                 destinatario=order.email,

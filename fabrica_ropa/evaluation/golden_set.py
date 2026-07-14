@@ -119,6 +119,95 @@ GOLDEN_SET: list[GoldenCase] = [
         requisito="RF-02",
         notas="Información de pedidos urgentes en el catálogo",
     ),
+
+    # =========================================================================
+    # GOLDEN SET DEL DOCUMENTO §5.1 (GS-01 a GS-10)
+    # Cubre ambos procesos: Realizar Pedido + Compra de Materiales
+    # =========================================================================
+
+    # --- Proceso 1: Realizar Pedido ---
+    GoldenCase(
+        case_id="GS-01",
+        entrada="Necesito 100 polos de algodón con estampado para mi empresa",
+        salida_esperada="Pedido validado, cotización generada con descuento 15%, total S/ 3,400.00",
+        categoria="e2e",
+        requisito="RF-01, RF-03",
+        notas="Flujo completo: validación → recolección → cotización",
+    ),
+    GoldenCase(
+        case_id="GS-02",
+        entrada="¿Cuánto costaría 50 camisas con bordado?",
+        salida_esperada="50 × (S/ 55 + S/ 10) = S/ 3,250 - 10% = S/ 2,925, adelanto S/ 1,462.50",
+        categoria="cotizacion",
+        requisito="RF-03",
+        notas="Cotización con acabado bordado y descuento por 50+ unidades",
+    ),
+    GoldenCase(
+        case_id="GS-03",
+        entrada="Quiero confirmar mi pago por transferencia de S/ 1,462.50",
+        salida_esperada="Pago confirmado, comprobante generado",
+        categoria="pago",
+        requisito="RF-04",
+        notas="Procesamiento de pago por el monto exacto del adelanto",
+    ),
+
+    # --- Proceso 2: Compra de Materiales ---
+    GoldenCase(
+        case_id="GS-04",
+        entrada="Generar lista de materiales para los pedidos de esta semana",
+        salida_esperada="Lista: tela algodón 120m, hilo 6 conos, botones 200, etiquetas 100",
+        categoria="materiales",
+        requisito="RF-09",
+        notas="MaterialPlannerAgent consolida materiales de pedidos pendientes",
+    ),
+    GoldenCase(
+        case_id="GS-05",
+        entrada="Estimar presupuesto para la compra de materiales",
+        salida_esperada="Presupuesto estimado: S/ 1,850.00 basado en catálogo y historial",
+        categoria="presupuesto",
+        requisito="RF-10",
+        notas="BudgetAgent usa RAG + catálogo para estimar",
+    ),
+    GoldenCase(
+        case_id="GS-06",
+        entrada="Aprobar presupuesto de S/ 1,850.00 para compra de materiales",
+        salida_esperada="Presupuesto aprobado, procediendo con selección de proveedor",
+        categoria="hitl",
+        requisito="RF-11",
+        notas="HITL: ApprovalAgent espera decisión humana",
+    ),
+    GoldenCase(
+        case_id="GS-07",
+        entrada="Seleccionar proveedor para la compra",
+        salida_esperada="Proveedor seleccionado: Textiles del Norte SAC (95% cumplimiento)",
+        categoria="proveedor",
+        requisito="RF-11",
+        notas="SupplierAgent selecciona por cumplimiento y ubicación",
+    ),
+    GoldenCase(
+        case_id="GS-08",
+        entrada="El proveedor principal no tiene stock de tela algodón",
+        salida_esperada="Proveedor alternativo: Distribuidora Textil Sur SA",
+        categoria="proveedor",
+        requisito="RF-11",
+        notas="Fallback a proveedor alternativo con HITL",
+    ),
+    GoldenCase(
+        case_id="GS-09",
+        entrada="Confirmar recepción de materiales de la orden OC-20260714-ABC123",
+        salida_esperada="Materiales recibidos, producción notificada",
+        categoria="produccion",
+        requisito="RF-12",
+        notas="ProductionAgent notifica tras confirmar recepción",
+    ),
+    GoldenCase(
+        case_id="GS-10",
+        entrada="¿Cuál es el historial de compras con Textiles del Norte?",
+        salida_esperada="Historial: 12 compras en 6 meses, cumplimiento 95%, precio promedio S/ 12.50/m",
+        categoria="rag",
+        requisito="RF-10",
+        notas="Consulta RAG sobre historial de proveedores",
+    ),
 ]
 
 

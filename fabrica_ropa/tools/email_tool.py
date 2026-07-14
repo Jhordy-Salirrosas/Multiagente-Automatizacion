@@ -30,9 +30,10 @@ class EmailTool:
     def _slugify(text: str) -> str:
         return re.sub(r"[^a-zA-Z0-9_-]+", "_", text)[:40]
 
-    def send(self, destinatario: str, asunto: str, cuerpo_html: str) -> str:
+    def send(self, destinatario: str, asunto: str, cuerpo_html: str, pdf_path: str | None = None) -> str:
         """
-        Guarda el email en disco simulando el envío.
+        Guarda el email en disco simulando el envío y, si hay credenciales SMTP configuradas,
+        lo envía realmente por correo con los adjuntos.
         Devuelve la ruta del archivo HTML generado.
         """
         ts = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -40,6 +41,43 @@ class EmailTool:
         path = self.output_dir / filename
         full_html = self._wrap_template(destinatario, asunto, cuerpo_html)
         path.write_text(full_html, encoding="utf-8")
+        
+        # Enviar correo real si hay credenciales
+        import os
+        from dotenv import load_dotenv
+        load_dotenv()
+        
+        smtp_user = os.getenv("SMTP_USER")
+        smtp_pass = os.getenv("SMTP_PASSWORD")
+        
+        if smtp_user and smtp_pass:
+            try:
+                import smtplib
+                from email.mime.multipart import MIMEMultipart
+                from email.mime.text import MIMEText
+                from email.mime.application import MIMEApplication
+                
+                msg = MIMEMultipart()
+                msg['From'] = f"{EMPRESA_NOMBRE} <{smtp_user}>"
+                msg['To'] = destinatario
+                msg['Subject'] = asunto
+                
+                msg.attach(MIMEText(full_html, 'html'))
+                
+                if pdf_path and Path(pdf_path).exists():
+                    with open(pdf_path, "rb") as f:
+                        part = MIMEApplication(f.read(), Name=Path(pdf_path).name)
+                        part['Content-Disposition'] = f'attachment; filename="{Path(pdf_path).name}"'
+                        msg.attach(part)
+                
+                server = smtplib.SMTP('smtp.gmail.com', 587)
+                server.starttls()
+                server.login(smtp_user, smtp_pass)
+                server.send_message(msg)
+                server.quit()
+            except Exception as e:
+                print(f"Error al enviar correo real: {e}")
+                
         return str(path)
 
     @staticmethod

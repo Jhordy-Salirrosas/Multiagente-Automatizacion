@@ -1,0 +1,16 @@
+{
+  "tipo": "materiales_recibidos",
+  "timestamp": "2026-07-14T13:19:44.424359",
+  "pedidos_asociados": [
+    "PLAN-SEMANAL"
+  ],
+  "materiales": [
+    "tela algodón",
+    "hilo industrial",
+    "etiquetas",
+    "botones"
+  ],
+  "orden_compra_id": "OC-20260714-965B55",
+  "mensaje": "Los materiales de la orden OC-20260714-965B55 han sido recibidos. Se puede iniciar la producción de los pedidos: PLAN-SEMANAL.",
+  "estado": "Notificado"
+}
